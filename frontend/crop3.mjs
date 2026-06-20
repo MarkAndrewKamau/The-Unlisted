@@ -1,0 +1,12 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: "/home/scotch/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome" });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+await page.goto("http://localhost:5173/profiles/isiolo-sisal-processors-ltd-203", { waitUntil: "networkidle" });
+await page.waitForSelector("text=Score Breakdown");
+await page.mouse.wheel(0, 1100);
+await page.waitForTimeout(300);
+await page.screenshot({ path: "/tmp/shots/profile_mid.png" });
+await page.mouse.wheel(0, 1300);
+await page.waitForTimeout(300);
+await page.screenshot({ path: "/tmp/shots/profile_bottom.png" });
+await browser.close();
