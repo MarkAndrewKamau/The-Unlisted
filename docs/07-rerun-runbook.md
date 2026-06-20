@@ -33,6 +33,14 @@ python run.py footprint --sector ecommerce
 python run.py footprint --sector manufacturing
 ```
 Results are cached in `.search_cache.json` (delete it to force a fresh lookup).
+
+> **Throttling:** the free DuckDuckGo backend will rate-limit a large burst
+> (it answers with an HTTP 202 "anomaly" page). The pipeline detects this,
+> backs off/retries, and — if it still fails — **warns** rather than silently
+> scoring the business as obscure (failed lookups are never cached). For a full
+> 50-candidate × 9-database sweep, set `SERPAPI_API_KEY` for reliable counts, or
+> run the free backend in smaller sector batches and re-run to fill gaps. **Do
+> not trust the exclusion gate on a run that printed throttle warnings.**
 This re-checks every candidate against the [common databases](03-exclusion-criteria.md).
 A business that got funded/covered since last quarter will now be gated out —
 that's intended.
