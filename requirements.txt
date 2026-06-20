@@ -1,0 +1,5 @@
+# Core pipeline has zero hard dependencies (stdlib only) so it runs anywhere.
+# These enable the live connectors and LLM profile synthesis.
+requests>=2.31
+beautifulsoup4>=4.12
+anthropic>=0.40   # optional: only used by profile.py when ANTHROPIC_API_KEY is set

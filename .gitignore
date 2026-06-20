@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+*.sqlite
+output/profiles/
+output/top50.csv
+.env
