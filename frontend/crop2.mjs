@@ -1,0 +1,11 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: "/home/scotch/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome" });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+await page.goto("http://localhost:5173/top-50", { waitUntil: "networkidle" });
+const href = await page.locator('a[href^="/profiles/"]').first().getAttribute("href");
+console.log("navigating to", href);
+await page.goto("http://localhost:5173" + href, { waitUntil: "networkidle" });
+await page.waitForSelector("text=Score Breakdown", { timeout: 10000 });
+await page.screenshot({ path: "/tmp/shots/profile_top.png" });
+await page.screenshot({ path: "/tmp/shots/profile_full.png", fullPage: true });
+await browser.close();

@@ -1,0 +1,10 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch({ args: ["--no-sandbox"], executablePath: "/home/scotch/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome" });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+await page.goto("http://localhost:5173/", { waitUntil: "networkidle" });
+await page.screenshot({ path: "/tmp/shots/mobile_dashboard.png", fullPage: true });
+await page.goto("http://localhost:5173/candidates", { waitUntil: "networkidle" });
+await page.screenshot({ path: "/tmp/shots/mobile_candidates.png", fullPage: true });
+await page.goto("http://localhost:5173/outreach", { waitUntil: "networkidle" });
+await page.screenshot({ path: "/tmp/shots/mobile_outreach.png", fullPage: true });
+await browser.close();
