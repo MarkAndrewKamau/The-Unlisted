@@ -6,7 +6,23 @@ best (and least-known) rise to the top.
 
 > The hard part of this bounty isn't scraping — it's doing two opposite things at
 > once: finding businesses with *strong fundamentals* while *excluding anything
-> the ecosystem already knows about*. So ranking is a **two-axis model**.
+> the ecosystem already knows about*. So ranking is a **two-axis model**, and the
+> deliverable is the **Top 50 _not found in the common databases_**.
+
+## Submission deliverables
+
+| # | Deliverable | Where |
+|---|---|---|
+| 1 | Research methodology | [docs/01-methodology.md](docs/01-methodology.md) |
+| 2 | Source list | [docs/02-sources.md](docs/02-sources.md) |
+| 3 | Exclusion criteria ("not in common databases") | [docs/03-exclusion-criteria.md](docs/03-exclusion-criteria.md) |
+| 4 | Scoring rubric | [docs/04-scoring-rubric.md](docs/04-scoring-rubric.md) |
+| 5 | Candidate database | `champions.db` (built by the pipeline) |
+| 6 | Top 50 profiles | `output/top50.csv` + `output/profiles/*.md` |
+| 7 | Top 10 founder outreach tracker | `output/outreach_tracker.csv` ([generator](discovery/outreach.py)) |
+| 8 | Interview script | [docs/05-interview-script.md](docs/05-interview-script.md) |
+| 9 | Data ethics / compliance note | [docs/06-data-ethics-compliance.md](docs/06-data-ethics-compliance.md) |
+| 10 | How to re-run next quarter | [docs/07-rerun-runbook.md](docs/07-rerun-runbook.md) |
 
 ## The model
 
@@ -48,6 +64,7 @@ can watch the Obscurity gate disqualify them.
 | score | `python run.py score --sector ecommerce` | compute Quality/Obscurity/rank + gate |
 | profile | `python run.py profile --sector ecommerce` | write a profile per finalist |
 | export | `python run.py export` | `top50.csv` + `profiles/*.md` |
+| outreach | `python run.py outreach` | top-10 founder tracker (preserves CRM state) |
 
 ## Architecture
 
@@ -59,12 +76,18 @@ discovery/
   connectors/
     base.py             Connector interface
     sample.py           offline fixtures (demo/CI)
-    jumia.py            live Jumia seller connector (free public web)
-  footprint.py          Obscurity axis — pluggable search backend
+    jumia.py            Jumia sellers — e-commerce (customer signal)
+    kam.py              KAM directory — manufacturing (vetted membership)
+    tenders.py          public tender awards — revenue proxy
+  footprint.py          exclusion vs. COMMON_DATABASES (Obscurity axis)
   dedupe.py             entity de-duplication
   score.py              the two-axis scoring model
   profile.py            profile generation (Claude Opus, or offline template)
+  outreach.py           top-10 founder outreach tracker
 ```
+
+Written deliverables (methodology, sources, exclusion criteria, rubric,
+interview script, ethics note, quarterly runbook) live in [docs/](docs/).
 
 ## Adding a data source
 
@@ -73,9 +96,9 @@ discovery/
 2. Register it in `discovery/connectors/__init__.py` `REGISTRY`.
 3. `python run.py seed --source <name> --sector <sector>`.
 
-Planned connectors (free sources): KAM member directory, public tenders (PPIP),
-WHOIS/Wayback for longevity, Facebook pages, BrighterMonday/Fuzu (hiring signal),
-OpenStreetMap.
+Built connectors: Jumia sellers, KAM directory, public tenders. Planned (free
+sources): WHOIS/Wayback for longevity, Facebook pages, BrighterMonday/Fuzu
+(hiring signal), OpenStreetMap. Full table in [docs/02-sources.md](docs/02-sources.md).
 
 ## Sector focus (MVP)
 
@@ -97,9 +120,10 @@ Two sectors, done rigorously:
 
 ## Roadmap
 
-- [ ] Wire a search backend for real footprint scoring
-- [ ] KAM + tenders connectors (manufacturing fundamentals)
+- [x] Two-axis scoring + common-database exclusion gate
+- [x] KAM + tenders connectors (manufacturing fundamentals)
+- [x] Top-10 founder outreach tracker (bonus deliverable)
+- [ ] Wire a search backend (SerpAPI/Bing) for real footprint scoring
 - [ ] WHOIS/Wayback longevity enrichment
 - [ ] Haiku-based fuzzy dedupe across connectors
-- [ ] Outreach tracker for the top-10 founder invitations (bonus deliverable)
 ```
