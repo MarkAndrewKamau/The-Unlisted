@@ -112,18 +112,20 @@ Two sectors, done rigorously:
 
 ## What's a stub vs. real
 
-- ✅ Real & runnable: schema, scoring model, gate, profiling, CLI, export, dedupe.
-- 🔌 Needs wiring for live runs: `footprint.search_hits` (point at SerpAPI/Bing),
-  `jumia.py` selectors (tune against live HTML), `ANTHROPIC_API_KEY` for LLM
-  profiles. Each degrades safely — no key/backend just means template profiles
-  and zero-footprint assumptions.
+- ✅ Real & runnable: schema, scoring model, common-database exclusion gate,
+  live search backend (free DuckDuckGo default, SerpAPI optional), profiling,
+  CLI, export, outreach tracker, dedupe.
+- 🔌 Needs tuning for live runs: connector selectors (`jumia.py`, `kam.py`,
+  `tenders.py`) against live HTML, and `ANTHROPIC_API_KEY` for LLM profiles.
+  Each degrades safely — no key/network just means template profiles and
+  cached/zero footprint, never a crash.
 
 ## Roadmap
 
 - [x] Two-axis scoring + common-database exclusion gate
 - [x] KAM + tenders connectors (manufacturing fundamentals)
 - [x] Top-10 founder outreach tracker (bonus deliverable)
-- [ ] Wire a search backend (SerpAPI/Bing) for real footprint scoring
+- [x] Live search backend for footprint scoring (DuckDuckGo free / SerpAPI)
 - [ ] WHOIS/Wayback longevity enrichment
 - [ ] Haiku-based fuzzy dedupe across connectors
 ```
