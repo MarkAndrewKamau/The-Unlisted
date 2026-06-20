@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 
+from .footprint import STRONG_EXCLUDERS
 from .models import Score, Sig, now_iso
 from .store import Store
 
@@ -89,8 +90,13 @@ def score_sector(store: Store, sector: str) -> list[Score]:
         hits = store.total_footprint(b["id"])
         obscurity = _obscurity(hits)
 
+        # Exclusion gate: a business "found in the common databases" is not hidden.
         disq, reason = 0, ""
-        if hits > FOOTPRINT_DISQUALIFY:
+        sources = {f["source"] for f in store.footprint_sources(b["id"]) if f["hits"] > 0}
+        strong = sources & STRONG_EXCLUDERS
+        if strong:
+            disq, reason = 1, f"listed in common database(s): {', '.join(sorted(strong))}"
+        elif hits > FOOTPRINT_DISQUALIFY:
             disq, reason = 1, f"ecosystem footprint too high ({hits} hits)"
 
         hc = 0.0 if disq else math.sqrt(max(quality, 0) * max(obscurity, 0))
