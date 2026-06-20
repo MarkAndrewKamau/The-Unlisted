@@ -1,20 +1,17 @@
-"""Ecosystem-footprint stage — the engine behind the Obscurity axis.
+"""Ecosystem-footprint / exclusion stage — the engine behind the Obscurity axis.
 
-For each business we count how visible it already is to the startup ecosystem.
-High visibility is what the bounty tells us to *exclude*, so these counts feed a
-penalty (and a hard disqualification gate) in score.py.
+The bounty asks for the Top 50 businesses **not found in the common databases**
+the startup ecosystem already watches. So this stage checks each candidate
+against an explicit, named list of those databases and records any presence.
+That presence feeds the Obscurity score and a hard disqualification gate: a
+business that turns up in a common database is, by definition, not hidden.
 
-Sources are intentionally cheap/free:
-  - press: site-scoped web search hit counts (TechCabal, Disrupt Africa, etc.)
-  - crunchbase: presence of a funding profile
-  - linkedin: company-page follower magnitude
-  - startup_events: appearances on accelerator / pitch-event lists
+COMMON_DATABASES is the auditable definition of "already known". Everything here
+is free/cheap: site-scoped search-hit counts and public profile lookups.
 
-This module ships the orchestration + a pluggable `search_hits` function. Wire
-`search_hits` to a real search backend (Bing API, SerpAPI, or scraped SERP
-counts). Without a backend it returns 0, which simply means "no footprint found"
-— so live runs degrade safely to treating everyone as obscure until you connect
-a search source. The sample connector seeds footprint directly for demos.
+`search_hits` is pluggable. Without a backend it returns 0 — meaning "not found",
+so live runs degrade safely to treating candidates as hidden until a search
+source is wired. The sample connector seeds presence directly for demos.
 """
 from __future__ import annotations
 
@@ -23,12 +20,26 @@ from typing import Callable
 from .models import Footprint
 from .store import Store
 
-PRESS_SITES = [
-    "techcabal.com",
-    "disrupt-africa.com",
-    "businessdailyafrica.com",
-    "techpoint.africa",
-]
+# The explicit definition of "already known". Each entry is a database/outlet the
+# Kenyan startup ecosystem routinely scans. A hit in ANY of these is footprint.
+COMMON_DATABASES = {
+    # Funding / startup databases
+    "crunchbase.com": "Crunchbase (funding profiles)",
+    "briterbridges.com": "Briter Bridges (Africa startup intelligence)",
+    "vc4a.com": "VC4A (venture database)",
+    "disrupt-africa.com": "Disrupt Africa (startup database + news)",
+    "thebigdeal.com": "The Big Deal (African funding tracker)",
+    # Ecosystem press
+    "techcabal.com": "TechCabal",
+    "techpoint.africa": "Techpoint Africa",
+    "businessdailyafrica.com": "Business Daily (startup desk)",
+    # Professional / social presence at ecosystem scale
+    "linkedin.com": "LinkedIn (company page following)",
+}
+
+# Strong-signal databases: presence here alone is enough to exclude (these mean
+# "funded / actively profiled by the ecosystem").
+STRONG_EXCLUDERS = {"crunchbase.com", "briterbridges.com", "vc4a.com", "thebigdeal.com"}
 
 
 def default_search_hits(query: str) -> int:
@@ -44,18 +55,13 @@ def default_search_hits(query: str) -> int:
 
 def collect(store: Store, sector: str | None = None,
             search_hits: Callable[[str], int] = default_search_hits) -> int:
-    """Populate the footprint table for businesses in `sector`. Returns row count."""
+    """Record each candidate's presence across COMMON_DATABASES. Returns rows written."""
     written = 0
     for b in store.businesses(sector):
         name = b["name"]
-        for site in PRESS_SITES:
-            hits = search_hits(f'"{name}" site:{site}')
+        for domain in COMMON_DATABASES:
+            hits = search_hits(f'"{name}" site:{domain}')
             if hits:
-                store.add_footprint(Footprint(business_id=b["id"], source=site, hits=hits))
+                store.add_footprint(Footprint(business_id=b["id"], source=domain, hits=hits))
                 written += 1
-        # Crunchbase presence counts as strong footprint (funded => known).
-        cb = search_hits(f'"{name}" site:crunchbase.com')
-        if cb:
-            store.add_footprint(Footprint(business_id=b["id"], source="crunchbase", hits=cb))
-            written += 1
     return written
