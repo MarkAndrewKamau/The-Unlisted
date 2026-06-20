@@ -26,12 +26,13 @@ new signals without duplicating existing ones.
 > Offline dry-run / smoke test anytime: `python run.py demo` (uses fixtures).
 
 ## 2. Footprint (refresh exclusions)
-Wire a search backend in `footprint.search_hits` (SerpAPI/Bing) for real results,
-then:
+Runs against a live search backend out of the box (free DuckDuckGo by default;
+`export SERPAPI_API_KEY=...` for higher-fidelity counts):
 ```bash
 python run.py footprint --sector ecommerce
 python run.py footprint --sector manufacturing
 ```
+Results are cached in `.search_cache.json` (delete it to force a fresh lookup).
 This re-checks every candidate against the [common databases](03-exclusion-criteria.md).
 A business that got funded/covered since last quarter will now be gated out —
 that's intended.
