@@ -3,3 +3,7 @@
 requests>=2.31
 beautifulsoup4>=4.12
 anthropic>=0.40   # optional: only used by profile.py when ANTHROPIC_API_KEY is set
+
+# HTTP API (server.py) for deploying the pipeline as a web service.
+fastapi>=0.115
+uvicorn>=0.32
