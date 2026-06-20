@@ -6,4 +6,5 @@ venv/
 *.sqlite
 output/profiles/
 output/top50.csv
+.search_cache.json
 .env
