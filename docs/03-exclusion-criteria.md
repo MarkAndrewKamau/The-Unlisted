@@ -18,8 +18,10 @@ three tiers:
 
 For each candidate we run a site-scoped lookup per database (`"<name>"
 site:<domain>`) and record the hit count as a `footprint` row with its source.
-The search backend is pluggable (`footprint.search_hits`); until one is wired it
-returns 0 (treated as "not found"), so the pipeline never *invents* footprint.
+The search backend is pluggable (`discovery/search.py`): it uses **free
+DuckDuckGo** by default, **SerpAPI** when `SERPAPI_API_KEY` is set, and a
+0-returning **stub** when offline. Results are cached on disk. Any error returns
+0 ("not found"), so the pipeline never *invents* footprint.
 
 ## The gate (hard exclusions)
 
