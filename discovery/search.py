@@ -22,11 +22,18 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import time
 from pathlib import Path
 
 CACHE_PATH = Path(".search_cache.json")
 _UA = "Mozilla/5.0 (compatible; KuzanaResearch/0.1; +research)"
+
+
+class SearchError(Exception):
+    """Raised when a lookup *failed* (throttled/blocked/transport error), as
+    distinct from a successful lookup that legitimately found 0 results. Callers
+    must NOT treat this as 'no footprint' silently, and it must NOT be cached."""
 
 
 class SearchBackend:
@@ -49,33 +56,49 @@ class DuckDuckGoBackend(SearchBackend):
 
     For the exclusion gate we mainly need presence (>0) and a rough magnitude,
     so a first-page count of site-scoped results is sufficient signal.
+
+    DuckDuckGo answers a bursted client with HTTP 202 and an "anomaly/challenge"
+    page rather than a 4xx. We detect that, back off, and retry; if it persists
+    we raise SearchError so the caller can flag it instead of silently scoring
+    the business as obscure.
     """
     name = "ddg"
     ENDPOINT = "https://html.duckduckgo.com/html/"
 
-    def __init__(self, delay: float = 1.5):
+    def __init__(self, delay: float = 2.5, retries: int = 3):
         self.delay = delay
+        self.retries = retries
 
     def count(self, query: str) -> int:
         try:
             import requests
             from bs4 import BeautifulSoup
         except ImportError:
-            return 0
-        try:
-            resp = requests.post(
-                self.ENDPOINT, data={"q": query},
-                headers={"User-Agent": _UA}, timeout=20,
-            )
-            resp.raise_for_status()
-        except Exception:
-            return 0
-        finally:
-            time.sleep(self.delay)  # be polite regardless of outcome
-        soup = BeautifulSoup(resp.text, "html.parser")
-        if soup.select_one(".no-results"):
-            return 0
-        return len(soup.select("a.result__a"))
+            raise SearchError("requests/beautifulsoup4 not installed")
+
+        last = "unknown"
+        for attempt in range(self.retries):
+            time.sleep(self.delay + random.uniform(0, 0.8))  # polite + jittered
+            try:
+                resp = requests.post(
+                    self.ENDPOINT, data={"q": query},
+                    headers={"User-Agent": _UA}, timeout=20,
+                )
+            except Exception as e:
+                last = f"transport error: {e}"
+                continue
+            text = resp.text
+            low = text.lower()
+            throttled = resp.status_code != 200 or "anomaly" in low or "challenge" in low
+            if throttled:
+                last = f"throttled (HTTP {resp.status_code})"
+                time.sleep(self.delay * (2 ** attempt))  # exponential backoff
+                continue
+            soup = BeautifulSoup(text, "html.parser")
+            if soup.select_one(".no-results"):
+                return 0
+            return len(soup.select("a.result__a"))
+        raise SearchError(f"ddg lookup failed after {self.retries} tries: {last}")
 
 
 class SerpApiBackend(SearchBackend):
@@ -90,7 +113,7 @@ class SerpApiBackend(SearchBackend):
         try:
             import requests
         except ImportError:
-            return 0
+            raise SearchError("requests not installed")
         try:
             resp = requests.get(
                 self.ENDPOINT,
@@ -99,13 +122,18 @@ class SerpApiBackend(SearchBackend):
             )
             resp.raise_for_status()
             data = resp.json()
-        except Exception:
-            return 0
+        except Exception as e:
+            raise SearchError(f"serpapi lookup failed: {e}")
         return int(data.get("search_information", {}).get("total_results", 0) or 0)
 
 
 class CachingBackend(SearchBackend):
-    """Wraps a backend with a JSON on-disk cache keyed by query."""
+    """Wraps a backend with a JSON on-disk cache keyed by query.
+
+    Only *successful* lookups are cached. A SearchError (throttle/transport
+    failure) propagates and is never stored, so a later run retries it instead
+    of inheriting a poisoned 0.
+    """
 
     def __init__(self, inner: SearchBackend, path: Path = CACHE_PATH):
         self.inner = inner
@@ -121,7 +149,7 @@ class CachingBackend(SearchBackend):
     def count(self, query: str) -> int:
         if query in self._cache:
             return self._cache[query]
-        val = self.inner.count(query)
+        val = self.inner.count(query)  # SearchError propagates, uncached
         self._cache[query] = val
         try:
             self.path.write_text(json.dumps(self._cache, indent=0))
