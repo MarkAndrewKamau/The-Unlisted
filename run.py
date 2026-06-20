@@ -56,8 +56,8 @@ def stage_seed(store: Store, source: str, sector: str) -> None:
 
 def stage_footprint(store: Store, sector: str) -> None:
     n = footprint_stage.collect(store, sector)
-    print(f"[footprint] wrote {n} footprint rows for sector '{sector}' "
-          f"(0 is expected until a search backend is wired — see footprint.py)")
+    print(f"[footprint] wrote {n} common-database presence rows for sector '{sector}'. "
+          f"(Set SERPAPI_API_KEY for higher-fidelity counts; SEARCH_BACKEND=stub to skip.)")
 
 
 def stage_score(store: Store, sector: str) -> None:
