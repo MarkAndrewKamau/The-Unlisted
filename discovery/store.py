@@ -61,7 +61,7 @@ class Store:
     def __init__(self, path: str = "champions.db"):
         self.path = path
         Path(path).parent.mkdir(parents=True, exist_ok=True) if Path(path).parent != Path("") else None
-        self.conn = sqlite3.connect(path)
+        self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
         self.conn.commit()
