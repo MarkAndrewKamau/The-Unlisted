@@ -8,7 +8,8 @@ Stages (run individually or all at once via `demo`):
     score      compute Quality, Obscurity, hc_rank; apply disqualification gate
     profile    write a markdown profile per finalist
     export     write output/top50.csv and output/profiles/*.md
-    demo       seed(sample) -> score -> profile -> export, fully offline
+    outreach   write output/outreach_tracker.csv for the top-10 founders
+    demo       seed(sample) -> score -> profile -> export -> outreach, offline
 
 Examples
 --------
@@ -24,6 +25,7 @@ import csv
 from pathlib import Path
 
 from discovery import footprint as footprint_stage
+from discovery import outreach as outreach_stage
 from discovery import profile as profile_stage
 from discovery import score as score_stage
 from discovery.connectors import REGISTRY
@@ -92,6 +94,12 @@ def stage_export(store: Store, top_n: int) -> None:
     _print_leaderboard(rows)
 
 
+def stage_outreach(store: Store, top_n: int = 10) -> None:
+    path = outreach_stage.build(store, top_n)
+    print(f"[outreach] top-{top_n} founder tracker at {path} "
+          f"(human-entered status/notes are preserved on re-run)")
+
+
 def _print_leaderboard(rows) -> None:
     print("\n  rank  hc    Q     O     business")
     print("  " + "-" * 52)
@@ -102,7 +110,8 @@ def _print_leaderboard(rows) -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("stage", choices=["seed", "footprint", "score", "profile", "export", "demo"])
+    p.add_argument("stage", choices=["seed", "footprint", "score", "profile",
+                                      "export", "outreach", "demo"])
     p.add_argument("--db", default="champions.db")
     p.add_argument("--source", default="sample", help="connector for seed stage")
     p.add_argument("--sector", default=None, help="restrict to one sector")
@@ -126,12 +135,15 @@ def main() -> None:
                 stage_profile(store, s, args.top)
         elif args.stage == "export":
             stage_export(store, args.top)
+        elif args.stage == "outreach":
+            stage_outreach(store)
         elif args.stage == "demo":
             for s in sectors:
                 stage_seed(store, "sample", s)
                 stage_score(store, s)
                 stage_profile(store, s, args.top)
             stage_export(store, args.top)
+            stage_outreach(store)
     finally:
         store.close()
 
