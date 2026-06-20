@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Callable
 
 from .models import Footprint
-from .search import get_backend
+from .search import SearchError, get_backend
 from .store import Store
 
 # The explicit definition of "already known". Each entry is a database/outlet the
@@ -57,11 +57,20 @@ def collect(store: Store, sector: str | None = None,
         search_hits = backend.count
 
     written = 0
+    failures = 0
     for b in store.businesses(sector):
         name = b["name"]
         for domain in COMMON_DATABASES:
-            hits = search_hits(f'"{name}" site:{domain}')
+            try:
+                hits = search_hits(f'"{name}" site:{domain}')
+            except SearchError:
+                failures += 1  # lookup failed (throttled) — NOT a confirmed 0
+                continue
             if hits:
                 store.add_footprint(Footprint(business_id=b["id"], source=domain, hits=hits))
                 written += 1
+    if failures:
+        print(f"[footprint] WARNING: {failures} lookups failed (search backend throttled). "
+              f"Those businesses are under-checked — re-run to retry, or set "
+              f"SERPAPI_API_KEY for reliable counts before trusting the exclusion gate.")
     return written
