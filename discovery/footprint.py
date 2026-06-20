@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Callable
 
 from .models import Footprint
+from .search import get_backend
 from .store import Store
 
 # The explicit definition of "already known". Each entry is a database/outlet the
@@ -42,20 +43,19 @@ COMMON_DATABASES = {
 STRONG_EXCLUDERS = {"crunchbase.com", "briterbridges.com", "vc4a.com", "thebigdeal.com"}
 
 
-def default_search_hits(query: str) -> int:
-    """Stub: return result count for a query. Replace with a real backend.
-
-    Example wiring (SerpAPI):
-        params = {"q": query, "api_key": KEY, "engine": "google"}
-        return int(requests.get("https://serpapi.com/search", params).json()
-                   .get("search_information", {}).get("total_results", 0))
-    """
-    return 0
-
-
 def collect(store: Store, sector: str | None = None,
-            search_hits: Callable[[str], int] = default_search_hits) -> int:
-    """Record each candidate's presence across COMMON_DATABASES. Returns rows written."""
+            search_hits: Callable[[str], int] | None = None) -> int:
+    """Record each candidate's presence across COMMON_DATABASES. Returns rows written.
+
+    `search_hits` defaults to the best available backend (see search.get_backend):
+    SerpAPI if a key is set, else free DuckDuckGo, else a 0-returning stub. Pass
+    your own callable to override (e.g. in tests).
+    """
+    if search_hits is None:
+        backend = get_backend()
+        print(f"[footprint] search backend: {backend.name}")
+        search_hits = backend.count
+
     written = 0
     for b in store.businesses(sector):
         name = b["name"]
