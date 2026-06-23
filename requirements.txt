@@ -7,3 +7,8 @@ anthropic>=0.40   # optional: only used by profile.py when ANTHROPIC_API_KEY is 
 # HTTP API (server.py) for deploying the pipeline as a web service.
 fastapi>=0.115
 uvicorn>=0.32
+
+# Avalanche on-chain provenance (discovery/onchain.py). Optional: only needed to
+# SEND the publish transaction — hashing/Merkle are dependency-free (keccak.py),
+# so dry-run root computation works without this.
+web3>=6.20

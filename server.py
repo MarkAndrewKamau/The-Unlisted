@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from discovery import footprint as footprint_stage
+from discovery import onchain as onchain_stage
 from discovery import outreach as outreach_stage
 from discovery import score as score_stage
 from discovery.connectors import REGISTRY
@@ -102,3 +103,34 @@ def rerun():
     store = Store(":memory:")
     _run_demo()
     return {"status": "ok"}
+
+
+# --- Avalanche on-chain provenance ------------------------------------------
+@app.get("/api/onchain/status")
+def onchain_status():
+    """Config + the current Top-50 Merkle root (dry-run, no tx sent)."""
+    configured = bool(os.getenv("REGISTRY_ADDRESS") and os.getenv("PRIVATE_KEY"))
+    tree, records = onchain_stage.champions_merkle(store, top_n=50)
+    return {
+        "configured": configured,
+        "network": "avalanche-fuji",
+        "chain_id": onchain_stage.FUJI_CHAIN_ID,
+        "registry_address": os.getenv("REGISTRY_ADDRESS", ""),
+        "current_root": "0x" + tree.root.hex(),
+        "champion_count": len(records),
+    }
+
+
+@app.post("/api/onchain/publish")
+def onchain_publish(ipfs_cid: str = ""):
+    """Publish the Top-50 root to ChampionRegistry (dry-run if unconfigured)."""
+    return onchain_stage.publish_edition(store, top_n=50, ipfs_cid=ipfs_cid)
+
+
+@app.get("/api/onchain/proof")
+def onchain_proof(name: str, sector: str):
+    """Merkle proof for one champion, for on-chain/Snowtrace verification."""
+    proof = onchain_stage.proof_for(store, name, sector)
+    if proof is None:
+        return {"error": "champion not found in current Top-50"}
+    return proof

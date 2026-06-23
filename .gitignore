@@ -8,3 +8,9 @@ output/profiles/
 output/top50.csv
 .search_cache.json
 .env
+
+# Foundry (onchain/)
+onchain/out/
+onchain/cache/
+onchain/lib/
+onchain/broadcast/

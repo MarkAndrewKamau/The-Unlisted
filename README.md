@@ -84,10 +84,30 @@ discovery/
   score.py              the two-axis scoring model
   profile.py            profile generation (Claude Opus, or offline template)
   outreach.py           top-10 founder outreach tracker
+  onchain.py            Avalanche relayer (Merkle root publish + proofs)
+  keccak.py             dependency-free Keccak-256 (for on-chain hashing)
+onchain/                ChampionRegistry.sol (Foundry) + deploy/test
+server.py               FastAPI service over the pipeline (+ /api/onchain/*)
 ```
 
 Written deliverables (methodology, sources, exclusion criteria, rubric,
 interview script, ethics note, quarterly runbook) live in [docs/](docs/).
+
+## On-chain provenance (Avalanche)
+
+Phase 1 anchors the **Top-50 as a tamper-proof, timestamped Merkle root** on
+Avalanche Fuji, so the list can be proven un-edited after publication (each leaf
+commits `name + sector + hc_rank`). The engine stays off-chain — only hashes and
+scores go on-chain, never PII. Hashing/Merkle are dependency-free and verified
+against OpenZeppelin's `MerkleProof`; `web3` is needed only to send the tx
+(otherwise `/api/onchain/publish` returns the root in dry-run mode).
+
+```bash
+curl localhost:8000/api/onchain/status            # current Top-50 root + config
+curl -X POST localhost:8000/api/onchain/publish   # publish root (dry-run if unconfigured)
+```
+
+Setup, deploy, and the "Verified on Avalanche ✓" frontend badge: [onchain/README.md](onchain/README.md).
 
 ## Adding a data source
 
