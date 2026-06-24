@@ -2,10 +2,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { api } from "../lib/api";
 import { getAllBusinesses, getDisqualified } from "../lib/generateBusinesses";
 import { getActivityLog, LAST_RUN } from "../lib/pipeline";
 import { getOutreachRecords } from "../lib/outreach";
@@ -28,8 +30,11 @@ interface RunState {
   done: boolean;
 }
 
+export type DataSource = "live" | "mock" | "loading";
+
 interface AppContextValue {
   businesses: Business[];
+  dataSource: DataSource;
   cycle: string;
   lastRun: string;
   toasts: Toast[];
@@ -95,10 +100,36 @@ const STAGE_SCRIPTS: Record<StageId, (sector: string) => string[]> = {
 };
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [businesses] = useState<Business[]>(() => getAllBusinesses());
+  // Start from mock so the UI renders instantly and works offline, then try to
+  // replace it with real data from the API. If the API is unreachable we stay on
+  // mock (dev/offline); `dataSource` tells the UI which it's showing.
+  const [businesses, setBusinesses] = useState<Business[]>(() => getAllBusinesses());
+  const [dataSource, setDataSource] = useState<DataSource>("loading");
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>(() => getActivityLog());
   const [outreach, setOutreach] = useState<OutreachRecord[]>(() => getOutreachRecords());
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    (async () => {
+      try {
+        const [real, realOutreach] = await Promise.all([
+          api.businesses(ctrl.signal),
+          api.outreach(ctrl.signal).catch(() => null),
+        ]);
+        if (Array.isArray(real) && real.length) {
+          setBusinesses(real);
+          if (realOutreach && realOutreach.length) setOutreach(realOutreach);
+          setDataSource("live");
+        } else {
+          setDataSource("mock");
+        }
+      } catch {
+        setDataSource("mock"); // API down -> keep mock, never break the demo
+      }
+    })();
+    return () => ctrl.abort();
+  }, []);
   const [verifiedSlugs, setVerifiedSlugs] = useState<Set<string>>(new Set());
   const [disqualifiedSlugs, setDisqualifiedSlugs] = useState<Set<string>>(new Set());
   const [run, setRun] = useState<RunState>({ active: false, stage: null, sector: "all", lines: [], done: false });
@@ -164,6 +195,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppContextValue>(() => ({
     businesses,
+    dataSource,
     cycle: "2026-Q2",
     lastRun: LAST_RUN,
     toasts,
@@ -180,7 +212,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     run,
     startRun,
     cancelRun,
-  }), [businesses, toasts, dismissToast, activity, addActivity, outreach, updateOutreachStatus, updateOutreachNotes, verifiedSlugs, markVerified, disqualifiedSlugs, disqualifyManually, run, startRun, cancelRun]);
+  }), [businesses, dataSource, toasts, dismissToast, activity, addActivity, outreach, updateOutreachStatus, updateOutreachNotes, verifiedSlugs, markVerified, disqualifiedSlugs, disqualifyManually, run, startRun, cancelRun]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

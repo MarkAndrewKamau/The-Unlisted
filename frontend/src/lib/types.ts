@@ -1,4 +1,13 @@
-export type Sector = "manufacturing" | "ecommerce";
+// Known sectors for autocomplete; `(string & {})` keeps it open to the real OSM
+// sectors (retail, food, services, agriculture, …) without type errors.
+export type Sector =
+  | "manufacturing"
+  | "ecommerce"
+  | "retail"
+  | "food"
+  | "services"
+  | "agriculture"
+  | (string & {});
 
 export interface Signals {
   longevity_years: number;

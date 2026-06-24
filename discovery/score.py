@@ -52,6 +52,18 @@ def _raw_dimensions(sig: dict) -> dict[str, float]:
     }
 
 
+def dimension_breakdown(sig: dict) -> tuple[dict[str, float], dict[str, float]]:
+    """Per-dimension raw values and weighted contributions for one business.
+
+    Used by the API to show *why* a business scored what it did. Contributions
+    are weight×raw (un-normalised, indicative); the ranked score uses cohort
+    normalisation in score_sector.
+    """
+    raw = _raw_dimensions(sig)
+    contributions = {d: round(WEIGHTS[d] * raw[d], 3) for d in WEIGHTS}
+    return {d: round(raw[d], 3) for d in raw}, contributions
+
+
 def _normalize(values: list[float]) -> list[float]:
     """Min-max to 0..1. Constant column -> all 0.5 (no information)."""
     lo, hi = min(values), max(values)

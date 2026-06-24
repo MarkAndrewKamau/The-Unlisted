@@ -78,6 +78,47 @@ def pipeline_stats():
     }
 
 
+def _slug(name: str) -> str:
+    return "".join(c if c.isalnum() else "-" for c in name.lower()).strip("-")
+
+
+_SIGNAL_FIELDS = ["longevity_years", "rating", "review_count", "last_activity_days",
+                  "locations", "job_postings", "tenders_won", "certified", "association_member"]
+
+
+def _rich_business(row) -> dict:
+    """Assemble a ranked row into the shape the frontend `Business` type expects."""
+    from discovery import score as score_stage
+    from discovery.footprint import COMMON_DATABASES
+
+    bid = row["id"]
+    sigs = store.latest_signals(bid)
+    signals = {k: (sigs[k]["value"] if k in sigs else 0) for k in _SIGNAL_FIELDS}
+    fp = [{"source": f["source"], "label": COMMON_DATABASES.get(f["source"], f["source"]),
+           "hits": f["hits"]} for f in store.footprint_sources(bid) if f["hits"]]
+    breakdown, contributions = score_stage.dimension_breakdown(sigs)
+    return {
+        "id": bid, "slug": _slug(row["name"]), "name": row["name"], "sector": row["sector"],
+        "town": row["town"] or "", "website": row["website"] or "",
+        "source": row["source"] or "", "registry_year": row["registry_year"] or 0,
+        "signals": signals, "footprint": fp,
+        "totalFootprintHits": store.total_footprint(bid),
+        "quality": row["quality"], "qualityBreakdown": breakdown,
+        "qualityContributions": contributions,
+        "obscurity": row["obscurity"], "hc_rank": row["hc_rank"],
+        "disqualified": bool(row["disqualified"]),
+        "disqualifyReason": row["reason"] or "",
+        "status": "disqualified" if row["disqualified"] else "active",
+    }
+
+
+@app.get("/api/businesses")
+def businesses_rich(sector: str | None = None):
+    """Full business objects (signals, footprint, score breakdown) for the UI."""
+    rows = store.ranked(sector=sector, include_disqualified=True)
+    return [_rich_business(r) for r in rows]
+
+
 @app.get("/api/candidates")
 def candidates(sector: str | None = None):
     rows = store.ranked(sector=sector, include_disqualified=True)
@@ -92,8 +133,14 @@ def top50(n: int = 50):
 
 @app.get("/api/outreach")
 def outreach():
+    """Real top-10 as outreach records. Fields are empty/'identified' until a
+    human logs genuine outreach — we never fabricate founders or conversations."""
     rows = store.ranked(include_disqualified=False)[:10]
-    return [_row_to_dict(r) for r in rows]
+    return [{
+        "businessSlug": _slug(r["name"]), "founder": "", "contactChannel": "",
+        "contactHandle": "", "status": "identified", "firstContacted": None,
+        "lastTouch": None, "owner": "", "notes": "",
+    } for r in rows]
 
 
 @app.post("/api/pipeline/rerun")
