@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "../lib/api";
-import { getAllBusinesses, getDisqualified } from "../lib/generateBusinesses";
+import { getAllBusinesses } from "../lib/generateBusinesses";
 import { getActivityLog, LAST_RUN } from "../lib/pipeline";
 import { getOutreachRecords } from "../lib/outreach";
 import type { ActivityEvent, Business, OutreachRecord, OutreachStatus } from "../lib/types";
@@ -35,6 +35,7 @@ export type DataSource = "live" | "mock" | "loading";
 interface AppContextValue {
   businesses: Business[];
   dataSource: DataSource;
+  servingReal: boolean;
   cycle: string;
   lastRun: string;
   toasts: Toast[];
@@ -51,32 +52,31 @@ interface AppContextValue {
   run: RunState;
   startRun: (stage: StageId, sector: SectorFilter) => void;
   cancelRun: () => void;
+  refresh: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+// Illustrative walkthrough of the real CLI stages — no fabricated counts. The
+// actual numbers come from running the CLI; this refreshes live data on finish.
 const STAGE_SCRIPTS: Record<StageId, (sector: string) => string[]> = {
   seed: (sector) => [
-    `$ python run.py seed --source jumia --sector ${sector}`,
-    "[seed:jumia] connecting to source...",
-    "[seed:jumia] 214 businesses, 1,926 signals collected",
-    "[seed:kam] connecting to source...",
-    "[seed:kam] 88 businesses, 792 signals collected",
+    `$ python run.py seed --source osm --sector ${sector}`,
+    "[seed:osm] querying OpenStreetMap Overpass for real businesses...",
+    "[seed:osm] cleaning names, de-duplicating, storing signals",
     "done.",
   ],
   footprint: (sector) => [
     `$ python run.py footprint --sector ${sector}`,
-    "[footprint] search backend: duckduckgo (free)",
-    "[footprint] scanning 9 common databases per candidate...",
-    "[footprint] wrote footprint rows for sector '" + sector + "'",
+    "[footprint] Wikipedia public-prominence gate (reliable) + DDG enrichment",
+    "[footprint] recording common-database presence per candidate...",
     "done.",
   ],
   score: (sector) => [
     `$ python run.py score --sector ${sector}`,
-    "[score] normalising Quality dimensions within sector cohort...",
-    "[score] applying exclusion gate (FOOTPRINT_DISQUALIFY=8)...",
+    "[score] normalising Quality within sector cohort, applying exclusion gate...",
     "[score] hc_rank = sqrt(Quality × Obscurity)",
-    "[score] scored, ranked. see leaderboard.",
+    "[score] scored, ranked — see leaderboard.",
     "done.",
   ],
   profile: () => [
@@ -105,31 +105,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // mock (dev/offline); `dataSource` tells the UI which it's showing.
   const [businesses, setBusinesses] = useState<Business[]>(() => getAllBusinesses());
   const [dataSource, setDataSource] = useState<DataSource>("loading");
+  const [servingReal, setServingReal] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [activity, setActivity] = useState<ActivityEvent[]>(() => getActivityLog());
   const [outreach, setOutreach] = useState<OutreachRecord[]>(() => getOutreachRecords());
 
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const [real, realOutreach, metaInfo] = await Promise.all([
+        api.businesses(signal),
+        api.outreach(signal).catch(() => null),
+        api.meta(signal).catch(() => null),
+      ]);
+      if (Array.isArray(real) && real.length) {
+        setBusinesses(real);
+        if (realOutreach && realOutreach.length) setOutreach(realOutreach);
+        setServingReal(Boolean(metaInfo?.serving_real));
+        setDataSource("live");
+      } else {
+        setDataSource("mock");
+      }
+    } catch {
+      setDataSource("mock"); // API down -> keep mock, never break the demo
+    }
+  }, []);
+
   useEffect(() => {
     const ctrl = new AbortController();
-    (async () => {
-      try {
-        const [real, realOutreach] = await Promise.all([
-          api.businesses(ctrl.signal),
-          api.outreach(ctrl.signal).catch(() => null),
-        ]);
-        if (Array.isArray(real) && real.length) {
-          setBusinesses(real);
-          if (realOutreach && realOutreach.length) setOutreach(realOutreach);
-          setDataSource("live");
-        } else {
-          setDataSource("mock");
-        }
-      } catch {
-        setDataSource("mock"); // API down -> keep mock, never break the demo
-      }
-    })();
+    refresh(ctrl.signal);
     return () => ctrl.abort();
-  }, []);
+  }, [refresh]);
   const [verifiedSlugs, setVerifiedSlugs] = useState<Set<string>>(new Set());
   const [disqualifiedSlugs, setDisqualifiedSlugs] = useState<Set<string>>(new Set());
   const [run, setRun] = useState<RunState>({ active: false, stage: null, sector: "all", lines: [], done: false });
@@ -179,7 +184,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setTimeout(() => {
             setRun((r) => ({ ...r, done: true }));
             if (stage === "footprint" || stage === "score") {
-              const dq = getDisqualified().slice(0, 3);
+              const dq = businesses.filter((b) => b.disqualified).slice(0, 3);
               dq.forEach((b, idx) => {
                 setTimeout(() => {
                   setToasts((t) => [...t.slice(-2), { id: `${b.id}-${Date.now()}`, message: `${b.name} disqualified · ${b.disqualifyReason.includes("database") ? "common database" : "footprint"}`, tone: "disqualify" }]);
@@ -187,15 +192,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
               });
             }
             addActivity({ timestamp: new Date().toISOString().slice(11, 16), message: `Pipeline stage "${stage}" completed (${sector})`, tone: "success" });
+            void refresh(); // re-pull live data from the API after the run
           }, 400);
         }
       }, i * 450);
     });
-  }, [addActivity]);
+  }, [addActivity, businesses, refresh]);
 
   const value = useMemo<AppContextValue>(() => ({
     businesses,
     dataSource,
+    servingReal,
+    refresh,
     cycle: "2026-Q2",
     lastRun: LAST_RUN,
     toasts,
@@ -212,7 +220,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     run,
     startRun,
     cancelRun,
-  }), [businesses, dataSource, toasts, dismissToast, activity, addActivity, outreach, updateOutreachStatus, updateOutreachNotes, verifiedSlugs, markVerified, disqualifiedSlugs, disqualifyManually, run, startRun, cancelRun]);
+  }), [businesses, dataSource, servingReal, refresh, toasts, dismissToast, activity, addActivity, outreach, updateOutreachStatus, updateOutreachNotes, verifiedSlugs, markVerified, disqualifiedSlugs, disqualifyManually, run, startRun, cancelRun]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

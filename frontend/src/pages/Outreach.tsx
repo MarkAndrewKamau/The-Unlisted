@@ -2,7 +2,6 @@ import { useState } from "react";
 import { DndContext, type DragEndEvent } from "@dnd-kit/core";
 import { Download } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { getTop50 } from "../lib/generateBusinesses";
 import { KanbanColumn } from "../components/outreach/KanbanColumn";
 import { FounderCard } from "../components/outreach/FounderCard";
 import { FounderDetailSlideOver } from "../components/outreach/FounderDetailSlideOver";
@@ -22,8 +21,11 @@ function download(filename: string, content: string) {
 }
 
 export function Outreach() {
-  const { outreach, updateOutreachStatus } = useApp();
-  const top10 = getTop50().slice(0, 10);
+  const { businesses, outreach, updateOutreachStatus } = useApp();
+  const top10 = businesses
+    .filter((b) => !b.disqualified)
+    .sort((a, b) => b.hc_rank - a.hc_rank)
+    .slice(0, 10);
   const businessBySlug = new Map(top10.map((b) => [b.slug, b]));
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
 

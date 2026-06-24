@@ -1,13 +1,18 @@
 import { Download, FileArchive } from "lucide-react";
-import { getAllBusinesses, getTop50 } from "../lib/generateBusinesses";
+import { useApp } from "../context/AppContext";
 import { Button } from "../components/ui/Button";
 import { RankedCard } from "../components/top50/RankedCard";
+import { OnchainBadge } from "../components/top50/OnchainBadge";
 import { exportAllProfilesMarkdown, exportTop50Csv } from "../lib/export";
 import { generateProfileMarkdown } from "../lib/profileTemplate";
 
 export function Top50() {
-  const top50 = getTop50();
-  const total = getAllBusinesses().length;
+  const { businesses } = useApp();
+  const total = businesses.length;
+  const top50 = businesses
+    .filter((b) => !b.disqualified)
+    .sort((a, b) => b.hc_rank - a.hc_rank)
+    .slice(0, 50);
   const avgQuality = top50.reduce((s, b) => s + b.quality, 0) / (top50.length || 1);
   const avgObscurity = top50.reduce((s, b) => s + b.obscurity, 0) / (top50.length || 1);
 
@@ -22,6 +27,7 @@ export function Top50() {
           <span className="font-mono text-xs text-surface/50">from {total.toLocaleString()}+ candidates seeded</span>
           <span className="font-mono text-xs text-surface">avg Quality score: {avgQuality.toFixed(1)}</span>
           <span className="font-mono text-xs text-surface">avg Obscurity: {avgObscurity.toFixed(1)}</span>
+          <OnchainBadge />
         </div>
         <div className="flex gap-2">
           <Button size="sm" icon={<Download size={13} />} onClick={() => exportTop50Csv(top50)}>

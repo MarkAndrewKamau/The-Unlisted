@@ -1,10 +1,14 @@
 import { Link } from "react-router-dom";
-import { getTop50 } from "../../lib/generateBusinesses";
+import { useApp } from "../../context/AppContext";
 import { SectorPill } from "../ui/Badge";
 import { ScoreBar } from "../ui/ScoreBar";
 
 export function LeaderboardPreview() {
-  const top5 = getTop50().slice(0, 5);
+  const { businesses } = useApp();
+  const top5 = businesses
+    .filter((b) => !b.disqualified)
+    .sort((a, b) => b.hc_rank - a.hc_rank)
+    .slice(0, 5);
 
   if (top5.length === 0) {
     return (

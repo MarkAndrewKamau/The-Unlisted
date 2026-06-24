@@ -2,8 +2,6 @@ import { useMemo, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { CheckCircle2, Download, Mail, Share2, ShieldAlert } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { getTop50 } from "../lib/generateBusinesses";
-import { getOutreachFor } from "../lib/outreach";
 import { generateProfileMarkdown } from "../lib/profileTemplate";
 import { exportProfileMarkdown } from "../lib/export";
 import { Button } from "../components/ui/Button";
@@ -18,16 +16,20 @@ import { evidenceRows } from "../lib/evidence";
 
 export function Profile() {
   const { slug } = useParams<{ slug: string }>();
-  const { businesses, verifiedSlugs, markVerified, disqualifiedSlugs, disqualifyManually, addActivity } = useApp();
+  const { businesses, outreach, verifiedSlugs, markVerified, disqualifiedSlugs, disqualifyManually, addActivity } = useApp();
   const [showDisqualifyConfirm, setShowDisqualifyConfirm] = useState(false);
   const [disqualifyReason, setDisqualifyReason] = useState("");
   const [scriptOpen, setScriptOpen] = useState(false);
 
   const business = useMemo(() => businesses.find((b) => b.slug === slug), [businesses, slug]);
+  // Rank within the real ranked, non-disqualified set.
   const rankInTop50 = useMemo(() => {
-    const idx = getTop50().findIndex((b) => b.slug === slug);
+    const ranked = businesses
+      .filter((b) => !b.disqualified)
+      .sort((a, b) => b.hc_rank - a.hc_rank);
+    const idx = ranked.findIndex((b) => b.slug === slug);
     return idx === -1 ? null : idx + 1;
-  }, [slug]);
+  }, [businesses, slug]);
 
   if (!business) return <Navigate to="/candidates" replace />;
 
@@ -36,7 +38,7 @@ export function Profile() {
   const isDisqualified = b.disqualified || isManuallyDisqualified;
   const isVerified = verifiedSlugs.has(b.slug) || (rankInTop50 !== null && rankInTop50 <= 50);
   const isTop10 = rankInTop50 !== null && rankInTop50 <= 10;
-  const outreachRecord = isTop10 ? getOutreachFor(b.slug) : undefined;
+  const outreachRecord = isTop10 ? outreach.find((r) => r.businessSlug === b.slug) : undefined;
   const markdown = generateProfileMarkdown(b);
 
   return (

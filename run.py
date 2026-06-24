@@ -100,6 +100,17 @@ def stage_outreach(store: Store, top_n: int = 10) -> None:
           f"(human-entered status/notes are preserved on re-run)")
 
 
+def stage_onchain(store: Store, top_n: int = 50) -> None:
+    from discovery import onchain as onchain_stage
+    res = onchain_stage.publish_edition(store, top_n=top_n)
+    print(f"[onchain] {res['count']} champions, root {res['root']}")
+    if res["mode"] == "published":
+        print(f"[onchain] published in block {res['block']} — {res['explorer']}")
+    else:
+        print(f"[onchain] {res['mode']}: {res.get('reason', '')} "
+              f"(set REGISTRY_ADDRESS + PRIVATE_KEY + AVALANCHE_RPC_URL to publish)")
+
+
 def _print_leaderboard(rows) -> None:
     print("\n  rank  hc    Q     O     business")
     print("  " + "-" * 52)
@@ -111,7 +122,7 @@ def _print_leaderboard(rows) -> None:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("stage", choices=["seed", "footprint", "score", "profile",
-                                      "export", "outreach", "demo"])
+                                      "export", "outreach", "onchain", "demo"])
     p.add_argument("--db", default="champions.db")
     p.add_argument("--source", default="sample", help="connector for seed stage")
     p.add_argument("--sector", default=None, help="restrict to one sector")
@@ -137,6 +148,8 @@ def main() -> None:
             stage_export(store, args.top)
         elif args.stage == "outreach":
             stage_outreach(store)
+        elif args.stage == "onchain":
+            stage_onchain(store, args.top)
         elif args.stage == "demo":
             for s in sectors:
                 stage_seed(store, "sample", s)

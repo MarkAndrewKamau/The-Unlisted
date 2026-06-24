@@ -32,7 +32,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+DB_PATH = os.getenv("DB_PATH", "champions.db")
+
 store = Store(":memory:")
+serving_real = False   # True when we loaded a real CLI-produced database
 
 
 def _run_demo() -> None:
@@ -50,9 +53,28 @@ def _run_demo() -> None:
     outreach_stage.build(store, top_n=10)
 
 
+def _init_store() -> None:
+    """Serve the real CLI-produced database if present and populated; otherwise
+    fall back to the in-memory sample demo so the API always returns something."""
+    global store, serving_real
+    if os.path.exists(DB_PATH):
+        candidate = Store(DB_PATH)
+        if candidate.businesses():
+            store = candidate
+            serving_real = True
+            print(f"[server] serving REAL data from {DB_PATH} "
+                  f"({len(candidate.businesses())} businesses)")
+            return
+        candidate.close()
+    store = Store(":memory:")
+    serving_real = False
+    _run_demo()
+    print("[server] no populated DB found — serving sample demo data")
+
+
 @app.on_event("startup")
 def startup() -> None:
-    _run_demo()
+    _init_store()
 
 
 def _row_to_dict(row) -> dict:
@@ -64,6 +86,12 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/meta")
+def meta():
+    """Tells the UI whether it's looking at real CLI data or the sample demo."""
+    return {"serving_real": serving_real, "db_path": DB_PATH if serving_real else None}
+
+
 @app.get("/api/pipeline/stats")
 def pipeline_stats():
     all_rows = store.businesses()
@@ -71,6 +99,7 @@ def pipeline_stats():
     disqualified = [r for r in ranked if r["disqualified"]]
     scored = [r for r in ranked if not r["disqualified"]]
     return {
+        "serving_real": serving_real,
         "seeded": len(all_rows),
         "scored": len(scored),
         "disqualified": len(disqualified),
@@ -145,18 +174,23 @@ def outreach():
 
 @app.post("/api/pipeline/rerun")
 def rerun():
-    global store
-    store.close()
-    store = Store(":memory:")
-    _run_demo()
-    return {"status": "ok"}
+    """Reload the store: re-reads the real DB if present, else rebuilds the demo."""
+    try:
+        store.close()
+    except Exception:
+        pass
+    _init_store()
+    return {"status": "ok", "serving_real": serving_real}
 
 
 # --- Avalanche on-chain provenance ------------------------------------------
 @app.get("/api/onchain/status")
 def onchain_status():
-    """Config + the current Top-50 Merkle root (dry-run, no tx sent)."""
-    configured = bool(os.getenv("REGISTRY_ADDRESS") and os.getenv("PRIVATE_KEY"))
+    """Config + the current Top-50 Merkle root (dry-run, no tx sent).
+
+    'configured' needs only the public REGISTRY_ADDRESS — the read-only badge
+    must never require the signing key, so a deployed backend never holds it."""
+    configured = bool(os.getenv("REGISTRY_ADDRESS"))
     tree, records = onchain_stage.champions_merkle(store, top_n=50)
     return {
         "configured": configured,
