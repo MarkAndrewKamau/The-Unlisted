@@ -1,13 +1,7 @@
-// Known sectors for autocomplete; `(string & {})` keeps it open to the real OSM
-// sectors (retail, food, services, agriculture, …) without type errors.
-export type Sector =
-  | "manufacturing"
-  | "ecommerce"
-  | "retail"
-  | "food"
-  | "services"
-  | "agriculture"
-  | (string & {});
+// Open string — real OSM sectors are manufacturing, retail, food, services,
+// agriculture, … (and "ecommerce" in the mock/demo data). Kept as `string` so
+// new sectors never break typing or exhaustive Record literals.
+export type Sector = string;
 
 export interface Signals {
   longevity_years: number;

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import clsx from "clsx";
+import type { Sector } from "../../lib/types";
 
 type Tone = "amber" | "terracotta" | "success" | "muted" | "dark";
 
@@ -25,12 +26,20 @@ export function Badge({ children, tone = "muted", className }: { children: React
   );
 }
 
-export function SectorPill({ sector }: { sector: "ecommerce" | "manufacturing" }) {
-  return (
-    <Badge tone={sector === "ecommerce" ? "amber" : "success"}>
-      {sector === "ecommerce" ? "E-commerce" : "Manufacturing"}
-    </Badge>
-  );
+const SECTOR_TONE: Record<string, Tone> = {
+  ecommerce: "amber", retail: "amber",
+  manufacturing: "success", agriculture: "success",
+  food: "terracotta", services: "dark",
+};
+const SECTOR_LABEL: Record<string, string> = {
+  ecommerce: "E-commerce", manufacturing: "Manufacturing", retail: "Retail",
+  food: "Food", services: "Services", agriculture: "Agriculture",
+};
+
+export function SectorPill({ sector }: { sector: Sector }) {
+  const tone = SECTOR_TONE[sector] ?? "muted";
+  const label = SECTOR_LABEL[sector] ?? (sector ? sector[0].toUpperCase() + sector.slice(1) : "—");
+  return <Badge tone={tone}>{label}</Badge>;
 }
 
 export function StatusBadge({ status }: { status: "active" | "disqualified" | "pending" }) {
