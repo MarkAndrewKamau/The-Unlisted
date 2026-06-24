@@ -6,12 +6,14 @@ Add a new source by dropping a module here and registering it in REGISTRY.
 from .base import Connector, SeedRecord
 from .jumia import JumiaConnector
 from .kam import KAMConnector
+from .osm import OSMConnector
 from .sample import SampleConnector
 from .tenders import TendersConnector
 
 # name -> connector factory. `run.py seed --source <name>` looks here.
 REGISTRY: dict[str, type[Connector]] = {
     "sample": SampleConnector,
+    "osm": OSMConnector,          # PRIMARY: real businesses, all sectors (OpenStreetMap)
     "jumia": JumiaConnector,      # e-commerce sellers (customer signal)
     "kam": KAMConnector,          # manufacturing membership (vetted, fundamentals)
     "tenders": TendersConnector,  # public tender awards (revenue proxy)
