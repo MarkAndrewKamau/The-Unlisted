@@ -6,6 +6,7 @@ import { generateProfileMarkdown } from "../lib/profileTemplate";
 import { exportProfileMarkdown } from "../lib/export";
 import { Button } from "../components/ui/Button";
 import { SectorPill } from "../components/ui/Badge";
+import { InvestorSignals } from "../components/profile/InvestorSignals";
 import { ScoreBreakdownChart } from "../components/profile/ScoreBreakdownChart";
 import { ObscurityGauge } from "../components/ui/ObscurityGauge";
 import { FootprintCheck } from "../components/shared/FootprintCheck";
@@ -119,6 +120,10 @@ export function Profile() {
             <FootprintCheck business={b} />
           </div>
         </div>
+      </div>
+
+      <div className="px-6 pb-2 md:px-10">
+        <InvestorSignals business={b} />
       </div>
 
       <div className="px-6 py-6 md:px-10">
