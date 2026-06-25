@@ -115,6 +115,27 @@ _SIGNAL_FIELDS = ["longevity_years", "rating", "review_count", "last_activity_da
                   "locations", "job_postings", "tenders_won", "certified", "association_member"]
 
 
+def _investability(sigs: dict) -> dict:
+    """The verification/fundamentals signals from enrich.py + places.py.
+
+    None = 'not checked / unknown' (kept distinct from 0/false) so the UI can show
+    honest 'unknown' states for businesses we couldn't verify."""
+    def g(k):
+        return sigs[k]["value"] if k in sigs else None
+    def b(k):
+        v = g(k)
+        return None if v is None else bool(v)
+    return {
+        "hasWebsite": bool(g("has_website")),
+        "hasPhone": bool(g("has_phone")),
+        "contactability": int(g("contactability") or 0),
+        "websiteLive": b("website_live"),
+        "https": b("https"),
+        "domainAgeYears": None if g("domain_age_years") is None else int(g("domain_age_years")),
+        "siteLastSeenDays": None if g("site_last_seen_days") is None else int(g("site_last_seen_days")),
+    }
+
+
 def _rich_business(row) -> dict:
     """Assemble a ranked row into the shape the frontend `Business` type expects."""
     from discovery import score as score_stage
@@ -127,6 +148,7 @@ def _rich_business(row) -> dict:
            "hits": f["hits"]} for f in store.footprint_sources(bid) if f["hits"]]
     breakdown, contributions = score_stage.dimension_breakdown(sigs)
     return {
+        "investability": _investability(sigs),
         "id": bid, "slug": _slug(row["name"]), "name": row["name"], "sector": row["sector"],
         "town": row["town"] or "", "website": row["website"] or "",
         "source": row["source"] or "", "registry_year": row["registry_year"] or 0,
