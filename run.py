@@ -24,6 +24,7 @@ import argparse
 import csv
 from pathlib import Path
 
+from discovery import enrich as enrich_stage
 from discovery import footprint as footprint_stage
 from discovery import outreach as outreach_stage
 from discovery import profile as profile_stage
@@ -52,6 +53,15 @@ def stage_seed(store: Store, source: str, sector: str) -> None:
             store.add_footprint(fp)
         n_biz += 1
     print(f"[seed:{source}] {n_biz} businesses, {n_sig} signals into {store.path}")
+
+
+def stage_enrich(store: Store, sector: str) -> None:
+    enrich_stage.enrich(store, sector)
+
+
+def stage_places(store: Store, sector: str) -> None:
+    from discovery import places as places_stage
+    places_stage.enrich_places(store, sector)
 
 
 def stage_footprint(store: Store, sector: str) -> None:
@@ -121,8 +131,8 @@ def _print_leaderboard(rows) -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("stage", choices=["seed", "footprint", "score", "profile",
-                                      "export", "outreach", "onchain", "demo"])
+    p.add_argument("stage", choices=["seed", "enrich", "places", "footprint", "score",
+                                      "profile", "export", "outreach", "onchain", "demo"])
     p.add_argument("--db", default="champions.db")
     p.add_argument("--source", default="sample", help="connector for seed stage")
     p.add_argument("--sector", default=None, help="restrict to one sector")
@@ -135,6 +145,12 @@ def main() -> None:
         if args.stage == "seed":
             for s in sectors:
                 stage_seed(store, args.source, s)
+        elif args.stage == "enrich":
+            for s in sectors:
+                stage_enrich(store, s)
+        elif args.stage == "places":
+            for s in sectors:
+                stage_places(store, s)
         elif args.stage == "footprint":
             for s in sectors:
                 stage_footprint(store, s)
