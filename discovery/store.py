@@ -96,6 +96,12 @@ class Store:
         )
         self.conn.commit()
 
+    def clear_footprint(self, business_id: int) -> None:
+        """Drop a business's footprint rows so re-running the gate doesn't double-count
+        (total_footprint SUMs hits)."""
+        self.conn.execute("DELETE FROM footprint WHERE business_id=?", (business_id,))
+        self.conn.commit()
+
     def put_score(self, s: Score) -> None:
         self.conn.execute(
             "INSERT OR REPLACE INTO score(business_id, quality, obscurity, hc_rank, disqualified, reason, computed_at)"
