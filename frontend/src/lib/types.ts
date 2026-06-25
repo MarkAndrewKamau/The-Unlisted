@@ -38,6 +38,18 @@ export type OutreachStatus =
   | "joined"
   | "declined";
 
+// Verification / fundamentals signals from the enrich + places stages.
+// null = "not checked / unknown" (distinct from false/0) so the UI shows honest gaps.
+export interface Investability {
+  hasWebsite: boolean;
+  hasPhone: boolean;
+  contactability: number; // 0..3 reachable channels
+  websiteLive: boolean | null;
+  https: boolean | null;
+  domainAgeYears: number | null;
+  siteLastSeenDays: number | null;
+}
+
 export interface Business {
   id: number;
   slug: string;
@@ -58,6 +70,7 @@ export interface Business {
   disqualified: boolean;
   disqualifyReason: string;
   status: "active" | "disqualified" | "pending";
+  investability?: Investability; // present on real API data; absent in mock
 }
 
 export interface OutreachRecord {
