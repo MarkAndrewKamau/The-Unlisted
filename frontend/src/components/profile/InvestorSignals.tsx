@@ -72,11 +72,6 @@ export function InvestorSignals({ business }: { business: Business }) {
           note={inv?.https ? "HTTPS" : inv?.websiteLive ? "no HTTPS" : undefined}
           known={inv?.websiteLive === true} />
       </div>
-
-      <p className="mt-3 font-mono text-[10px] leading-relaxed text-text-muted">
-        From Google Maps, web archive, and public listings — verification-grade evidence to
-        prioritise outreach. Financials, registration &amp; legal checks are the next (DD) step.
-      </p>
     </section>
   );
 }
