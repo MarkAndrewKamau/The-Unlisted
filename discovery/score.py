@@ -36,19 +36,28 @@ def _g(sig: dict, key: str, default: float = 0.0) -> float:
 
 
 def _raw_dimensions(sig: dict) -> dict[str, float]:
-    """Collapse a business's signals into one raw number per Quality dimension."""
+    """Collapse a business's signals into one raw number per Quality dimension.
+
+    Includes the investability/verification signals from enrich.py: web-archive
+    domain age strengthens longevity, snapshot recency strengthens consistency,
+    and a live website counts toward validation."""
     rating = _g(sig, Sig.RATING)            # 0..5
     reviews = _g(sig, Sig.REVIEW_COUNT)
-    last_days = _g(sig, Sig.LAST_ACTIVITY_DAYS, default=365)
+    # freshest of: last review/post activity, or last web-archive snapshot
+    last_days = min(_g(sig, Sig.LAST_ACTIVITY_DAYS, default=365),
+                    _g(sig, Sig.SITE_LAST_SEEN_DAYS, default=365))
     return {
-        "longevity": _g(sig, Sig.LONGEVITY_YEARS),
+        # survival: registry/declared years, or years of web presence (Wayback)
+        "longevity": max(_g(sig, Sig.LONGEVITY_YEARS), _g(sig, Sig.DOMAIN_AGE_YEARS)),
         # satisfaction weighted by how many customers it's proven across
         "customer": (rating / 5.0) * math.log1p(reviews),
-        # fresher activity => higher; invert days-since-last-activity
+        # fresher activity => higher; invert days-since-last-activity/snapshot
         "consistency": 1.0 / (1.0 + last_days / 30.0),
         "growth": _g(sig, Sig.LOCATIONS) + _g(sig, Sig.JOB_POSTINGS),
         "revenue": _g(sig, Sig.TENDERS_WON) + _g(sig, Sig.LOCATIONS),
-        "validation": max(_g(sig, Sig.CERTIFIED), _g(sig, Sig.ASSOCIATION_MEMBER)),
+        # third-party validation, or a live/maintained website
+        "validation": max(_g(sig, Sig.CERTIFIED), _g(sig, Sig.ASSOCIATION_MEMBER),
+                          _g(sig, Sig.WEBSITE_LIVE)),
     }
 
 
