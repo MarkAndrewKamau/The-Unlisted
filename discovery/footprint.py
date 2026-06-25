@@ -76,6 +76,7 @@ def collect(store: Store, sector: str | None = None, backend=None) -> int:
 
     for b in store.businesses(sector):
         name = b["name"]
+        store.clear_footprint(b["id"])  # idempotent: re-running won't double-count
 
         # 1) PRIMARY, reliable: Wikipedia public-prominence gate
         try:
