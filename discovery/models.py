@@ -30,6 +30,16 @@ class Sig:
     CERTIFIED = "certified"                  # 0/1 KEBS or sector certification
     ASSOCIATION_MEMBER = "association_member"  # 0/1 KAM/KEPSA etc. membership
 
+    # --- investability / verification layer (enrich.py) ---
+    HAS_WEBSITE = "has_website"              # 0/1 publishes a website
+    HAS_PHONE = "has_phone"                  # 0/1 publishes a phone
+    HAS_EMAIL = "has_email"                  # 0/1 publishes an email
+    CONTACTABILITY = "contactability"        # 0..3 count of reachable channels
+    WEBSITE_LIVE = "website_live"            # 0/1 site returns HTTP 200
+    HTTPS = "https"                          # 0/1 serves over HTTPS
+    DOMAIN_AGE_YEARS = "domain_age_years"    # years since first web archive (longevity/survival)
+    SITE_LAST_SEEN_DAYS = "site_last_seen_days"  # days since last web snapshot (still maintained?)
+
 
 @dataclass
 class Business:

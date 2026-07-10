@@ -24,6 +24,7 @@ import argparse
 import csv
 from pathlib import Path
 
+from discovery import enrich as enrich_stage
 from discovery import footprint as footprint_stage
 from discovery import outreach as outreach_stage
 from discovery import profile as profile_stage
@@ -31,7 +32,7 @@ from discovery import score as score_stage
 from discovery.connectors import REGISTRY
 from discovery.store import Store
 
-SECTORS = ["manufacturing", "ecommerce"]
+SECTORS = ["manufacturing", "ecommerce", "agriculture", "logistics"]
 OUTPUT = Path("output")
 
 
@@ -40,18 +41,29 @@ def stage_seed(store: Store, source: str, sector: str) -> None:
         raise SystemExit(f"unknown source '{source}'. options: {', '.join(REGISTRY)}")
     connector = REGISTRY[source](sector=sector)
     n_biz = n_sig = 0
-    for rec in connector.discover():
-        bid = store.upsert_business(rec.business)
-        for sig in rec.signals:
-            sig.business_id = bid
-            store.add_signal(sig)
-            n_sig += 1
-        # sample connector also carries seeded footprint
-        for fp in getattr(rec, "footprint", []):
-            fp.business_id = bid
-            store.add_footprint(fp)
-        n_biz += 1
-    print(f"[seed:{source}] {n_biz} businesses, {n_sig} signals into {store.path}")
+    with store.conn.pipeline():  # batch network round-trips to the remote DB
+        for rec in connector.discover():
+            bid = store.upsert_business(rec.business)
+            for sig in rec.signals:
+                sig.business_id = bid
+                store.add_signal(sig)
+                n_sig += 1
+            # sample connector also carries seeded footprint
+            for fp in getattr(rec, "footprint", []):
+                fp.business_id = bid
+                store.add_footprint(fp)
+            store.commit()  # one round-trip per business, not per row
+            n_biz += 1
+    print(f"[seed:{source}] {n_biz} businesses, {n_sig} signals into the database")
+
+
+def stage_enrich(store: Store, sector: str) -> None:
+    enrich_stage.enrich(store, sector)
+
+
+def stage_places(store: Store, sector: str) -> None:
+    from discovery import places as places_stage
+    places_stage.enrich_places(store, sector)
 
 
 def stage_footprint(store: Store, sector: str) -> None:
@@ -85,7 +97,7 @@ def stage_export(store: Store, top_n: int) -> None:
                         b["quality"], b["obscurity"], b["registry_year"] or ""])
     for b in rows:
         prof = store.conn.execute(
-            "SELECT markdown FROM profile WHERE business_id=?", (b["id"],)
+            "SELECT markdown FROM profile WHERE business_id=%s", (b["id"],)
         ).fetchone()
         if prof:
             slug = "".join(c if c.isalnum() else "-" for c in b["name"].lower()).strip("-")

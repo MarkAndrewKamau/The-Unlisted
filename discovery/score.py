@@ -46,20 +46,41 @@ def _g(sig: dict, key: str, default: float = 0.0) -> float:
 
 
 def _raw_dimensions(sig: dict) -> dict[str, float]:
-    """Collapse a business's signals into one raw number per Quality dimension."""
+    """Collapse a business's signals into one raw number per Quality dimension.
+
+    Includes the investability/verification signals from enrich.py: web-archive
+    domain age strengthens longevity, snapshot recency strengthens consistency,
+    and a live website counts toward validation."""
     rating = _g(sig, Sig.RATING)            # 0..5
     reviews = _g(sig, Sig.REVIEW_COUNT)
-    last_days = _g(sig, Sig.LAST_ACTIVITY_DAYS, default=365)
+    # freshest of: last review/post activity, or last web-archive snapshot
+    last_days = min(_g(sig, Sig.LAST_ACTIVITY_DAYS, default=365),
+                    _g(sig, Sig.SITE_LAST_SEEN_DAYS, default=365))
     return {
-        "longevity": _g(sig, Sig.LONGEVITY_YEARS),
+        # survival: registry/declared years, or years of web presence (Wayback)
+        "longevity": max(_g(sig, Sig.LONGEVITY_YEARS), _g(sig, Sig.DOMAIN_AGE_YEARS)),
         # satisfaction weighted by how many customers it's proven across
         "customer": (rating / 5.0) * math.log1p(reviews),
-        # fresher activity => higher; invert days-since-last-activity
+        # fresher activity => higher; invert days-since-last-activity/snapshot
         "consistency": 1.0 / (1.0 + last_days / 30.0),
         "growth": _g(sig, Sig.LOCATIONS) + _g(sig, Sig.JOB_POSTINGS),
         "revenue": _g(sig, Sig.TENDERS_WON) + _g(sig, Sig.LOCATIONS),
-        "validation": max(_g(sig, Sig.CERTIFIED), _g(sig, Sig.ASSOCIATION_MEMBER)),
+        # third-party validation, or a live/maintained website
+        "validation": max(_g(sig, Sig.CERTIFIED), _g(sig, Sig.ASSOCIATION_MEMBER),
+                          _g(sig, Sig.WEBSITE_LIVE)),
     }
+
+
+def dimension_breakdown(sig: dict) -> tuple[dict[str, float], dict[str, float]]:
+    """Per-dimension raw values and weighted contributions for one business.
+
+    Used by the API to show *why* a business scored what it did. Contributions
+    are weight×raw (un-normalised, indicative); the ranked score uses cohort
+    normalisation in score_sector.
+    """
+    raw = _raw_dimensions(sig)
+    contributions = {d: round(WEIGHTS[d] * raw[d], 3) for d in WEIGHTS}
+    return {d: round(raw[d], 3) for d in raw}, contributions
 
 
 def _normalize(values: list[float]) -> list[float]:
@@ -85,39 +106,41 @@ def score_sector(store: Store, sector: str) -> list[Score]:
     if not rows:
         return []
 
-    # 1) raw dimensions per business
-    raws: list[dict[str, float]] = []
-    for b in rows:
-        raws.append(_raw_dimensions(store.latest_signals(b["id"])))
+    with store.conn.pipeline():  # batch network round-trips to the remote DB (re-entrant safe)
+        # 1) raw dimensions per business
+        raws: list[dict[str, float]] = []
+        for b in rows:
+            raws.append(_raw_dimensions(store.latest_signals(b["id"])))
 
-    # 2) normalise each dimension across the cohort
-    normed = {dim: _normalize([r[dim] for r in raws]) for dim in WEIGHTS}
+        # 2) normalise each dimension across the cohort
+        normed = {dim: _normalize([r[dim] for r in raws]) for dim in WEIGHTS}
 
-    # 3) combine
-    results: list[Score] = []
-    for i, b in enumerate(rows):
-        quality = 100.0 * sum(WEIGHTS[dim] * normed[dim][i] for dim in WEIGHTS)
-        hits = store.total_footprint(b["id"])
-        obscurity = _obscurity(hits)
+        # 3) combine
+        results: list[Score] = []
+        for i, b in enumerate(rows):
+            quality = 100.0 * sum(WEIGHTS[dim] * normed[dim][i] for dim in WEIGHTS)
+            hits = store.total_footprint(b["id"])
+            obscurity = _obscurity(hits)
 
-        # Exclusion gate: a business "found in the common databases" is not hidden.
-        disq, reason = 0, ""
-        sources = {f["source"] for f in store.footprint_sources(b["id"]) if f["hits"] > 0}
-        strong = sources & STRONG_EXCLUDERS
-        if strong:
-            disq, reason = 1, f"listed in common database(s): {', '.join(sorted(strong))}"
-        elif hits > FOOTPRINT_DISQUALIFY:
-            disq, reason = 1, f"ecosystem footprint too high ({hits} hits)"
+            # Exclusion gate: a business "found in the common databases" is not hidden.
+            disq, reason = 0, ""
+            sources = {f["source"] for f in store.footprint_sources(b["id"]) if f["hits"] > 0}
+            strong = sources & STRONG_EXCLUDERS
+            if strong:
+                disq, reason = 1, f"listed in common database(s): {', '.join(sorted(strong))}"
+            elif hits > FOOTPRINT_DISQUALIFY:
+                disq, reason = 1, f"ecosystem footprint too high ({hits} hits)"
 
-        hc = 0.0 if disq else math.sqrt(max(quality, 0) * max(obscurity, 0))
-        dimensions = [
-            {"name": DIMENSION_LABELS[dim], "weight": WEIGHTS[dim], "value": round(100.0 * normed[dim][i], 1)}
-            for dim in WEIGHTS
-        ]
-        s = Score(business_id=b["id"], quality=round(quality, 1),
-                  obscurity=round(obscurity, 1), hc_rank=round(hc, 1),
-                  disqualified=disq, reason=reason,
-                  dimensions_json=json.dumps(dimensions), computed_at=now_iso())
-        store.put_score(s)
-        results.append(s)
+            hc = 0.0 if disq else math.sqrt(max(quality, 0) * max(obscurity, 0))
+            dimensions = [
+                {"name": DIMENSION_LABELS[dim], "weight": WEIGHTS[dim], "value": round(100.0 * normed[dim][i], 1)}
+                for dim in WEIGHTS
+            ]
+            s = Score(business_id=b["id"], quality=round(quality, 1),
+                      obscurity=round(obscurity, 1), hc_rank=round(hc, 1),
+                      disqualified=disq, reason=reason,
+                      dimensions_json=json.dumps(dimensions), computed_at=now_iso())
+            store.put_score(s)
+            results.append(s)
+        store.commit()
     return results

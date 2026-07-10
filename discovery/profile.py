@@ -83,6 +83,7 @@ def generate(store: Store, sector: str, top_n: int = 50) -> int:
         md = _llm_profile(client, store, b) if client else _template_profile(store, b)
         store.put_profile(b["id"], md, now_iso())
         written += 1
+    store.commit()
     return written
 
 

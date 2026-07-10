@@ -15,15 +15,17 @@ source is wired. The sample connector seeds presence directly for demos.
 """
 from __future__ import annotations
 
-from typing import Callable
-
+from . import wiki
 from .models import Footprint
-from .search import SearchError, get_backend
+from .search import SearchError, extract_domain, get_backend
 from .store import Store
 
 # The explicit definition of "already known". Each entry is a database/outlet the
 # Kenyan startup ecosystem routinely scans. A hit in ANY of these is footprint.
 COMMON_DATABASES = {
+    # General public prominence — reliable & free via the Wikipedia API. Its own
+    # article means the wider public already knows them (not a hidden champion).
+    "wikipedia.org": "Wikipedia (public prominence)",
     # Funding / startup databases
     "crunchbase.com": "Crunchbase (funding profiles)",
     "briterbridges.com": "Briter Bridges (Africa startup intelligence)",
@@ -38,39 +40,91 @@ COMMON_DATABASES = {
     "linkedin.com": "LinkedIn (company page following)",
 }
 
-# Strong-signal databases: presence here alone is enough to exclude (these mean
-# "funded / actively profiled by the ecosystem").
-STRONG_EXCLUDERS = {"crunchbase.com", "briterbridges.com", "vc4a.com", "thebigdeal.com"}
+# Strong-signal databases: presence here alone is enough to exclude. Wikipedia and
+# the funding databases all mean "already known / funded / actively profiled".
+STRONG_EXCLUDERS = {"wikipedia.org", "crunchbase.com", "briterbridges.com",
+                    "vc4a.com", "thebigdeal.com"}
 
 
-def collect(store: Store, sector: str | None = None,
-            search_hits: Callable[[str], int] | None = None) -> int:
-    """Record each candidate's presence across COMMON_DATABASES. Returns rows written.
+def collect(store: Store, sector: str | None = None, backend=None) -> int:
+    """Record each candidate's presence in COMMON_DATABASES. Returns rows written.
 
-    `search_hits` defaults to the best available backend (see search.get_backend):
-    SerpAPI if a key is set, else free DuckDuckGo, else a 0-returning stub. Pass
-    your own callable to override (e.g. in tests).
+    Hybrid lookup, tuned to stay viable on the free DuckDuckGo backend:
+
+      - **Hard gate (reliable):** a *site-scoped* check for each of the 4 STRONG
+        excluders only (`"<name>" site:crunchbase.com` …). Big companies' own
+        pages outrank their Crunchbase/LinkedIn entries in a general search, so a
+        site-scoped query is the only dependable way to detect "already funded /
+        profiled". That's 4 lookups/business, not the full 9.
+      - **Soft signal (cheap):** ONE general query (`"<name>" Kenya`) whose result
+        domains are scanned for press/social databases — adds to the obscurity
+        magnitude without extra site-scoped calls.
+
+    ~5 lookups/business vs. the naive 9, and the hard gate stays accurate.
+    `backend` defaults to search.get_backend(); pass a fake in tests.
     """
-    if search_hits is None:
+    if backend is None:
         backend = get_backend()
-        print(f"[footprint] search backend: {backend.name}")
-        search_hits = backend.count
+    print(f"[footprint] Wikipedia gate (reliable) + search enrichment via {backend.name}")
 
+    soft_dbs = [d for d in COMMON_DATABASES if d not in STRONG_EXCLUDERS and d != "wikipedia.org"]
+    ddg_strong = [d for d in STRONG_EXCLUDERS if d != "wikipedia.org"]
     written = 0
-    failures = 0
+    wiki_fail = 0
+    search_disabled = False   # circuit-breaker: trip after repeated throttling
+    consecutive_search_fail = 0
+
     for b in store.businesses(sector):
         name = b["name"]
-        for domain in COMMON_DATABASES:
-            try:
-                hits = search_hits(f'"{name}" site:{domain}')
-            except SearchError:
-                failures += 1  # lookup failed (throttled) — NOT a confirmed 0
-                continue
-            if hits:
-                store.add_footprint(Footprint(business_id=b["id"], source=domain, hits=hits))
+        store.clear_footprint(b["id"])  # idempotent: re-running won't double-count
+
+        # 1) PRIMARY, reliable: Wikipedia public-prominence gate
+        try:
+            title = wiki.known_title(name)
+            if title:
+                store.add_footprint(Footprint(business_id=b["id"], source="wikipedia.org",
+                                              hits=1, url=f"https://en.wikipedia.org/wiki/{title}"))
                 written += 1
-    if failures:
-        print(f"[footprint] WARNING: {failures} lookups failed (search backend throttled). "
-              f"Those businesses are under-checked — re-run to retry, or set "
-              f"SERPAPI_API_KEY for reliable counts before trusting the exclusion gate.")
+        except Exception:
+            wiki_fail += 1
+
+        if search_disabled:
+            continue
+
+        # 2) BEST-EFFORT enrichment: search-backed startup-database + press/social
+        threw = False
+        for domain in ddg_strong:
+            try:
+                n = backend.count(f'"{name}" site:{domain}')
+            except SearchError:
+                threw = True
+                break
+            if n:
+                store.add_footprint(Footprint(business_id=b["id"], source=domain, hits=n))
+                written += 1
+        if not threw:
+            try:
+                urls = backend.results(f'"{name}" Kenya')
+                hits: dict[str, int] = {}
+                for url in urls:
+                    host = extract_domain(url)
+                    for domain in soft_dbs:
+                        if host == domain or host.endswith("." + domain):
+                            hits[domain] = hits.get(domain, 0) + 1
+                for domain, n in hits.items():
+                    store.add_footprint(Footprint(business_id=b["id"], source=domain, hits=n))
+                    written += 1
+            except SearchError:
+                threw = True
+
+        consecutive_search_fail = consecutive_search_fail + 1 if threw else 0
+        if consecutive_search_fail >= 3:
+            search_disabled = True
+            print("[footprint] search backend throttled repeatedly — disabling search "
+                  "enrichment for this run; Wikipedia gate still applied. "
+                  "(Re-run later or set SERPAPI_API_KEY for full common-database coverage.)")
+
+    store.commit()
+    if wiki_fail:
+        print(f"[footprint] WARNING: {wiki_fail} Wikipedia checks failed (network). Re-run to retry.")
     return written

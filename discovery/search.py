@@ -42,13 +42,20 @@ class SearchBackend:
     def count(self, query: str) -> int:
         raise NotImplementedError
 
+    def results(self, query: str) -> list[str]:
+        """Return result URLs for a query (used by the single-query footprint scan)."""
+        raise NotImplementedError
+
 
 class StubBackend(SearchBackend):
-    """Returns 0 for everything — used when offline or no deps/keys."""
+    """Returns nothing — used when offline or no deps/keys."""
     name = "stub"
 
     def count(self, query: str) -> int:
         return 0
+
+    def results(self, query: str) -> list[str]:
+        return []
 
 
 class DuckDuckGoBackend(SearchBackend):
@@ -69,7 +76,8 @@ class DuckDuckGoBackend(SearchBackend):
         self.delay = delay
         self.retries = retries
 
-    def count(self, query: str) -> int:
+    def _fetch(self, query: str):
+        """Throttle-aware fetch. Returns BeautifulSoup or raises SearchError."""
         try:
             import requests
             from bs4 import BeautifulSoup
@@ -87,18 +95,25 @@ class DuckDuckGoBackend(SearchBackend):
             except Exception as e:
                 last = f"transport error: {e}"
                 continue
-            text = resp.text
-            low = text.lower()
-            throttled = resp.status_code != 200 or "anomaly" in low or "challenge" in low
-            if throttled:
+            low = resp.text.lower()
+            if resp.status_code != 200 or "anomaly" in low or "challenge" in low:
                 last = f"throttled (HTTP {resp.status_code})"
                 time.sleep(self.delay * (2 ** attempt))  # exponential backoff
                 continue
-            soup = BeautifulSoup(text, "html.parser")
-            if soup.select_one(".no-results"):
-                return 0
-            return len(soup.select("a.result__a"))
+            return BeautifulSoup(resp.text, "html.parser")
         raise SearchError(f"ddg lookup failed after {self.retries} tries: {last}")
+
+    def count(self, query: str) -> int:
+        soup = self._fetch(query)
+        if soup.select_one(".no-results"):
+            return 0
+        return len(soup.select("a.result__a"))
+
+    def results(self, query: str) -> list[str]:
+        soup = self._fetch(query)
+        if soup.select_one(".no-results"):
+            return []
+        return [a.get("href", "") for a in soup.select("a.result__a") if a.get("href")]
 
 
 class SerpApiBackend(SearchBackend):
@@ -126,6 +141,20 @@ class SerpApiBackend(SearchBackend):
             raise SearchError(f"serpapi lookup failed: {e}")
         return int(data.get("search_information", {}).get("total_results", 0) or 0)
 
+    def results(self, query: str) -> list[str]:
+        import requests
+        try:
+            resp = requests.get(
+                self.ENDPOINT,
+                params={"q": query, "engine": "google", "api_key": self.api_key},
+                timeout=20,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            raise SearchError(f"serpapi lookup failed: {e}")
+        return [r.get("link", "") for r in data.get("organic_results", []) if r.get("link")]
+
 
 class CachingBackend(SearchBackend):
     """Wraps a backend with a JSON on-disk cache keyed by query.
@@ -146,16 +175,43 @@ class CachingBackend(SearchBackend):
             except Exception:
                 self._cache = {}
 
+    def _save(self) -> None:
+        try:
+            self.path.write_text(json.dumps(self._cache, indent=0))
+        except Exception:
+            pass
+
     def count(self, query: str) -> int:
         if query in self._cache:
             return self._cache[query]
         val = self.inner.count(query)  # SearchError propagates, uncached
         self._cache[query] = val
-        try:
-            self.path.write_text(json.dumps(self._cache, indent=0))
-        except Exception:
-            pass
+        self._save()
         return val
+
+    def results(self, query: str) -> list[str]:
+        key = "R::" + query  # separate namespace from count()
+        if key in self._cache:
+            return self._cache[key]
+        val = self.inner.results(query)  # SearchError propagates, uncached
+        self._cache[key] = val
+        self._save()
+        return val
+
+
+def extract_domain(url: str) -> str:
+    """Normalised host for a result URL, unwrapping DuckDuckGo redirect links.
+
+    DDG result hrefs are often `//duckduckgo.com/l/?uddg=<encoded real url>`.
+    """
+    from urllib.parse import parse_qs, unquote, urlparse
+
+    if "duckduckgo.com/l/" in url or url.startswith("//duckduckgo.com"):
+        q = parse_qs(urlparse(url if "://" in url else "https:" + url).query)
+        if "uddg" in q:
+            url = unquote(q["uddg"][0])
+    host = urlparse(url if "://" in url else "https://" + url).netloc.lower()
+    return host[4:] if host.startswith("www.") else host
 
 
 def get_backend() -> SearchBackend:
