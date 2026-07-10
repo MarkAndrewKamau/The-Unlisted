@@ -9,7 +9,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from .models import Business, Footprint, Score, Signal
+from .models import Business, Footprint, Score, Signal, now_iso
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS business (
@@ -41,18 +41,38 @@ CREATE TABLE IF NOT EXISTS footprint (
     captured_at TEXT
 );
 CREATE TABLE IF NOT EXISTS score (
-    business_id  INTEGER PRIMARY KEY REFERENCES business(id),
-    quality      REAL,
-    obscurity    REAL,
-    hc_rank      REAL,
-    disqualified INTEGER DEFAULT 0,
-    reason       TEXT,
-    computed_at  TEXT
+    business_id     INTEGER PRIMARY KEY REFERENCES business(id),
+    quality         REAL,
+    obscurity       REAL,
+    hc_rank         REAL,
+    disqualified    INTEGER DEFAULT 0,
+    reason          TEXT,
+    dimensions_json TEXT,
+    computed_at     TEXT
 );
 CREATE TABLE IF NOT EXISTS profile (
     business_id INTEGER PRIMARY KEY REFERENCES business(id),
     markdown    TEXT,
     computed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS outreach (
+    business_id INTEGER PRIMARY KEY REFERENCES business(id),
+    status      TEXT NOT NULL DEFAULT 'identified',
+    notes       TEXT DEFAULT '',
+    updated_at  TEXT
+);
+CREATE TABLE IF NOT EXISTS review (
+    business_id  INTEGER PRIMARY KEY REFERENCES business(id),
+    disqualified INTEGER DEFAULT 0,
+    reason       TEXT DEFAULT '',
+    verified     INTEGER DEFAULT 0,
+    updated_at   TEXT
+);
+CREATE TABLE IF NOT EXISTS activity (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts      TEXT NOT NULL,
+    message TEXT NOT NULL,
+    tone    TEXT NOT NULL DEFAULT 'info'
 );
 """
 
@@ -98,9 +118,10 @@ class Store:
 
     def put_score(self, s: Score) -> None:
         self.conn.execute(
-            "INSERT OR REPLACE INTO score(business_id, quality, obscurity, hc_rank, disqualified, reason, computed_at)"
-            " VALUES (?,?,?,?,?,?,?)",
-            (s.business_id, s.quality, s.obscurity, s.hc_rank, s.disqualified, s.reason, s.computed_at),
+            "INSERT OR REPLACE INTO score(business_id, quality, obscurity, hc_rank, disqualified, reason, dimensions_json, computed_at)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (s.business_id, s.quality, s.obscurity, s.hc_rank, s.disqualified, s.reason,
+             s.dimensions_json, s.computed_at),
         )
         self.conn.commit()
 
@@ -137,7 +158,7 @@ class Store:
 
     def ranked(self, sector: str | None = None, include_disqualified: bool = False) -> list[sqlite3.Row]:
         q = (
-            "SELECT b.*, s.quality, s.obscurity, s.hc_rank, s.disqualified, s.reason "
+            "SELECT b.*, s.quality, s.obscurity, s.hc_rank, s.disqualified, s.reason, s.dimensions_json "
             "FROM business b JOIN score s ON s.business_id = b.id"
         )
         clauses = []
@@ -151,6 +172,94 @@ class Store:
             q += " WHERE " + " AND ".join(clauses)
         q += " ORDER BY s.hc_rank DESC"
         return self.conn.execute(q, params).fetchall()
+
+    def by_id(self, business_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            "SELECT b.*, s.quality, s.obscurity, s.hc_rank, s.disqualified, s.reason, s.dimensions_json "
+            "FROM business b LEFT JOIN score s ON s.business_id = b.id WHERE b.id = ?",
+            (business_id,),
+        ).fetchone()
+
+    # --- outreach --------------------------------------------------------------
+    def upsert_outreach(self, business_id: int, status: str | None = None, notes: str | None = None) -> None:
+        existing = self.conn.execute(
+            "SELECT * FROM outreach WHERE business_id=?", (business_id,)
+        ).fetchone()
+        if existing is None:
+            self.conn.execute(
+                "INSERT INTO outreach(business_id, status, notes, updated_at) VALUES (?,?,?,?)",
+                (business_id, status or "identified", notes or "", now_iso()),
+            )
+        else:
+            new_status = status if status is not None else existing["status"]
+            new_notes = notes if notes is not None else existing["notes"]
+            self.conn.execute(
+                "UPDATE outreach SET status=?, notes=?, updated_at=? WHERE business_id=?",
+                (new_status, new_notes, now_iso(), business_id),
+            )
+        self.conn.commit()
+
+    def ensure_outreach_seeded(self, business_ids: list[int]) -> None:
+        """Create an 'identified' row for any of these ids that don't have one yet."""
+        for bid in business_ids:
+            row = self.conn.execute("SELECT 1 FROM outreach WHERE business_id=?", (bid,)).fetchone()
+            if row is None:
+                self.conn.execute(
+                    "INSERT INTO outreach(business_id, status, notes, updated_at) VALUES (?,?,?,?)",
+                    (bid, "identified", "", now_iso()),
+                )
+        self.conn.commit()
+
+    def list_outreach(self) -> list[sqlite3.Row]:
+        return self.conn.execute("SELECT * FROM outreach").fetchall()
+
+    def get_outreach(self, business_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            "SELECT * FROM outreach WHERE business_id=?", (business_id,)
+        ).fetchone()
+
+    # --- manual review overrides ------------------------------------------------
+    def set_override(self, business_id: int, disqualified: int | None = None,
+                      reason: str | None = None, verified: int | None = None) -> None:
+        existing = self.conn.execute(
+            "SELECT * FROM review WHERE business_id=?", (business_id,)
+        ).fetchone()
+        if existing is None:
+            self.conn.execute(
+                "INSERT INTO review(business_id, disqualified, reason, verified, updated_at) VALUES (?,?,?,?,?)",
+                (business_id, disqualified or 0, reason or "", verified or 0, now_iso()),
+            )
+        else:
+            new_dq = disqualified if disqualified is not None else existing["disqualified"]
+            new_reason = reason if reason is not None else existing["reason"]
+            new_verified = verified if verified is not None else existing["verified"]
+            self.conn.execute(
+                "UPDATE review SET disqualified=?, reason=?, verified=?, updated_at=? WHERE business_id=?",
+                (new_dq, new_reason, new_verified, now_iso(), business_id),
+            )
+        self.conn.commit()
+
+    def overrides(self) -> dict[int, sqlite3.Row]:
+        rows = self.conn.execute("SELECT * FROM review").fetchall()
+        return {r["business_id"]: r for r in rows}
+
+    def get_override(self, business_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            "SELECT * FROM review WHERE business_id=?", (business_id,)
+        ).fetchone()
+
+    # --- activity log ------------------------------------------------------------
+    def add_activity(self, message: str, tone: str = "info") -> None:
+        self.conn.execute(
+            "INSERT INTO activity(ts, message, tone) VALUES (?,?,?)",
+            (now_iso(), message, tone),
+        )
+        self.conn.commit()
+
+    def list_activity(self, limit: int = 50) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            "SELECT * FROM activity ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
 
     def close(self) -> None:
         self.conn.close()

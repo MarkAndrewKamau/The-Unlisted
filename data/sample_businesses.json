@@ -190,5 +190,293 @@
       "linkedin.com": 1,
       "disrupt-africa.com": 14
     }
+  },
+  {
+    "name": "Githunguri Dairy Collective",
+    "sector": "manufacturing",
+    "town": "Kiambu",
+    "website": "",
+    "registry_year": 2004,
+    "signals": {
+      "longevity_years": 22,
+      "rating": 4.4,
+      "review_count": 210,
+      "last_activity_days": 6,
+      "locations": 3,
+      "job_postings": 8,
+      "tenders_won": 0,
+      "certified": 1,
+      "association_member": 1
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 1,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Mombasa Freight & Bond Ltd.",
+    "sector": "logistics",
+    "town": "Mombasa",
+    "website": "",
+    "registry_year": 2011,
+    "signals": {
+      "longevity_years": 15,
+      "rating": 4.7,
+      "review_count": 380,
+      "last_activity_days": 4,
+      "locations": 2,
+      "job_postings": 3,
+      "tenders_won": 12,
+      "certified": 0,
+      "association_member": 0
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 0,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Nakuru Steel Fabricators",
+    "sector": "manufacturing",
+    "town": "Nakuru",
+    "website": "",
+    "registry_year": 2001,
+    "signals": {
+      "longevity_years": 25,
+      "rating": 4.2,
+      "review_count": 60,
+      "last_activity_days": 10,
+      "locations": 1,
+      "job_postings": 4,
+      "tenders_won": 8,
+      "certified": 1,
+      "association_member": 1
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 0,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Thika Textile Mills (Bidii)",
+    "sector": "manufacturing",
+    "town": "Thika",
+    "website": "",
+    "registry_year": 1992,
+    "signals": {
+      "longevity_years": 34,
+      "rating": 3.8,
+      "review_count": 15,
+      "last_activity_days": 90,
+      "locations": 1,
+      "job_postings": 0,
+      "tenders_won": 0,
+      "certified": 0,
+      "association_member": 1
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 0,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Kisumu Aqua Foods",
+    "sector": "agriculture",
+    "town": "Kisumu",
+    "website": "",
+    "registry_year": 2015,
+    "signals": {
+      "longevity_years": 11,
+      "rating": 4.8,
+      "review_count": 154,
+      "last_activity_days": 5,
+      "locations": 1,
+      "job_postings": 2,
+      "tenders_won": 5,
+      "certified": 0,
+      "association_member": 0
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 0,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Karatina Fresh Produce",
+    "sector": "agriculture",
+    "town": "Nyeri",
+    "website": "",
+    "registry_year": 2017,
+    "signals": {
+      "longevity_years": 9,
+      "rating": 4.1,
+      "review_count": 40,
+      "last_activity_days": 15,
+      "locations": 2,
+      "job_postings": 6,
+      "tenders_won": 0,
+      "certified": 0,
+      "association_member": 0
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 1,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Ruiru Auto-Parts Ltd.",
+    "sector": "ecommerce",
+    "town": "Ruiru",
+    "website": "",
+    "registry_year": 2014,
+    "signals": {
+      "longevity_years": 12,
+      "rating": 4.5,
+      "review_count": 2140,
+      "last_activity_days": 2,
+      "locations": 1,
+      "job_postings": 3,
+      "tenders_won": 0,
+      "certified": 0,
+      "association_member": 0
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 0,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Naivasha Rose Growers",
+    "sector": "agriculture",
+    "town": "Naivasha",
+    "website": "",
+    "registry_year": 2006,
+    "signals": {
+      "longevity_years": 20,
+      "rating": 4.3,
+      "review_count": 25,
+      "last_activity_days": 20,
+      "locations": 1,
+      "job_postings": 12,
+      "tenders_won": 0,
+      "certified": 1,
+      "association_member": 0
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 1,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Machakos Concrete Works",
+    "sector": "manufacturing",
+    "town": "Machakos",
+    "website": "",
+    "registry_year": 2010,
+    "signals": {
+      "longevity_years": 16,
+      "rating": 4.0,
+      "review_count": 30,
+      "last_activity_days": 25,
+      "locations": 2,
+      "job_postings": 2,
+      "tenders_won": 7,
+      "certified": 1,
+      "association_member": 0
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 0,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Kericho Tea Cooperative",
+    "sector": "agriculture",
+    "town": "Kericho",
+    "website": "",
+    "registry_year": 1984,
+    "signals": {
+      "longevity_years": 42,
+      "rating": 4.1,
+      "review_count": 18,
+      "last_activity_days": 60,
+      "locations": 1,
+      "job_postings": 0,
+      "tenders_won": 0,
+      "certified": 0,
+      "association_member": 0
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 0,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Kakamega Millers Ltd.",
+    "sector": "manufacturing",
+    "town": "Kakamega",
+    "website": "",
+    "registry_year": 1998,
+    "signals": {
+      "longevity_years": 28,
+      "rating": 3.9,
+      "review_count": 22,
+      "last_activity_days": 45,
+      "locations": 1,
+      "job_postings": 1,
+      "tenders_won": 24,
+      "certified": 0,
+      "association_member": 1
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 0,
+      "disrupt-africa.com": 0
+    }
+  },
+  {
+    "name": "Meru Herbal Extracts",
+    "sector": "manufacturing",
+    "town": "Meru",
+    "website": "",
+    "registry_year": 2019,
+    "signals": {
+      "longevity_years": 7,
+      "rating": 4.6,
+      "review_count": 12,
+      "last_activity_days": 30,
+      "locations": 1,
+      "job_postings": 1,
+      "tenders_won": 0,
+      "certified": 1,
+      "association_member": 0
+    },
+    "footprint": {
+      "techcabal.com": 0,
+      "crunchbase.com": 0,
+      "linkedin.com": 1,
+      "disrupt-africa.com": 0
+    }
   }
 ]

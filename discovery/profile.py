@@ -104,6 +104,11 @@ def _template_profile(store: Store, b) -> str:
     )
 
 
+# Public alias: render a single business's template-mode profile on demand
+# (used by the HTTP API to generate one profile without a batch run).
+render_profile = _template_profile
+
+
 def _client():
     try:
         import anthropic

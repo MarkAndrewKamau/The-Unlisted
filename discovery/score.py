@@ -12,11 +12,21 @@ weighted and summed.
 """
 from __future__ import annotations
 
+import json
 import math
 
 from .footprint import STRONG_EXCLUDERS
 from .models import Score, Sig, now_iso
 from .store import Store
+
+DIMENSION_LABELS = {
+    "longevity": "Longevity",
+    "customer": "Customer",
+    "consistency": "Consistency",
+    "growth": "Growth",
+    "revenue": "Revenue",
+    "validation": "Validation",
+}
 
 # Quality dimension -> (weight, function from latest-signals dict -> raw value).
 # Weights sum to 1.0. Tune these as the scoring model matures.
@@ -100,9 +110,14 @@ def score_sector(store: Store, sector: str) -> list[Score]:
             disq, reason = 1, f"ecosystem footprint too high ({hits} hits)"
 
         hc = 0.0 if disq else math.sqrt(max(quality, 0) * max(obscurity, 0))
+        dimensions = [
+            {"name": DIMENSION_LABELS[dim], "weight": WEIGHTS[dim], "value": round(100.0 * normed[dim][i], 1)}
+            for dim in WEIGHTS
+        ]
         s = Score(business_id=b["id"], quality=round(quality, 1),
                   obscurity=round(obscurity, 1), hc_rank=round(hc, 1),
-                  disqualified=disq, reason=reason, computed_at=now_iso())
+                  disqualified=disq, reason=reason,
+                  dimensions_json=json.dumps(dimensions), computed_at=now_iso())
         store.put_score(s)
         results.append(s)
     return results

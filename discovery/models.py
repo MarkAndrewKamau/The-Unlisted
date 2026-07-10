@@ -70,4 +70,5 @@ class Score:
     hc_rank: float
     disqualified: int = 0
     reason: str = ""
+    dimensions_json: str = "[]"
     computed_at: str = field(default_factory=now_iso)
