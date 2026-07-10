@@ -1,12 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getCandidates } from "@/lib/api";
 import type { Business, Sector, Status } from "@/lib/types";
 import { Search, X } from "lucide-react";
 
+interface CandidatesSearch {
+  sector?: Sector;
+  status?: Status;
+}
+
 export const Route = createFileRoute("/app/candidates")({
   head: () => ({ meta: [{ title: "Candidates · The Unlisted" }] }),
+  validateSearch: (search: Record<string, unknown>): CandidatesSearch => ({
+    sector: SECTORS.includes(search.sector as Sector) ? (search.sector as Sector) : undefined,
+    status: STATUSES.includes(search.status as Status) ? (search.status as Status) : undefined,
+  }),
   component: CandidatesPage,
 });
 
@@ -19,6 +28,7 @@ const SECTORS: Sector[] = [
 const STATUSES: Status[] = ["active", "disqualified"];
 
 function CandidatesPage() {
+  const searchParams = Route.useSearch();
   const { data } = useQuery({
     queryKey: ["candidates"],
     queryFn: () => getCandidates(),
@@ -30,8 +40,21 @@ function CandidatesPage() {
   );
 
   const [q, setQ] = useState("");
-  const [sectors, setSectors] = useState<Set<Sector>>(new Set());
-  const [statuses, setStatuses] = useState<Set<Status>>(new Set());
+  const [sectors, setSectors] = useState<Set<Sector>>(
+    () => new Set(searchParams.sector ? [searchParams.sector] : []),
+  );
+  const [statuses, setStatuses] = useState<Set<Status>>(
+    () => new Set(searchParams.status ? [searchParams.status] : []),
+  );
+
+  // Sidebar sub-section links navigate here with a new sector/status search
+  // param even when already on this page — sync the filter sets when they change.
+  useEffect(() => {
+    if (searchParams.sector) setSectors(new Set([searchParams.sector]));
+  }, [searchParams.sector]);
+  useEffect(() => {
+    if (searchParams.status) setStatuses(new Set([searchParams.status]));
+  }, [searchParams.status]);
   const [minQ, setMinQ] = useState(0);
   const [minO, setMinO] = useState(0);
   const [sortKey, setSortKey] = useState<

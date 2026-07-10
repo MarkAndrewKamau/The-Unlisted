@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { getCandidate, getCandidateProfile, verifyCandidate, disqualifyCandidate } from "@/lib/api";
 import type { BusinessDetail } from "@/lib/types";
+import { InvestorSignals } from "@/components/investor-signals";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
 import { ArrowLeft, CheckCircle2, Send, Download, XCircle, Share2 } from "lucide-react";
 
@@ -162,6 +163,8 @@ function ProfilePage() {
             </div>
           </div>
         </section>
+
+        <InvestorSignals business={b} />
 
         {/* Footprint table */}
         <section className="rounded-2xl border border-border bg-card p-6">

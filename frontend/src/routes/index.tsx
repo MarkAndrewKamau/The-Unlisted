@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Navbar } from "@/components/landing/navbar";
 import { CinematicHero } from "@/components/landing/cinematic-hero";
 import {
   TwoAxisSection,
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/")({
 function Landing() {
   return (
     <main>
+      <Navbar />
       <CinematicHero />
       <TwoAxisSection />
       <PillarsSection />

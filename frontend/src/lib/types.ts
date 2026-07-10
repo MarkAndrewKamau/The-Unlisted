@@ -4,6 +4,13 @@ export type Sector =
   | "agriculture"
   | "logistics";
 export type Status = "active" | "disqualified";
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+}
 export type OutreachStatus =
   | "identified"
   | "contacted"
@@ -46,10 +53,21 @@ export interface Business {
   status?: Status;
 }
 
+export interface Investability {
+  has_website: boolean;
+  has_phone: boolean;
+  contactability: number;
+  website_live: boolean | null;
+  https: boolean | null;
+  domain_age_years: number | null;
+  site_last_seen_days: number | null;
+}
+
 export interface BusinessDetail extends Business {
   signals: Record<string, number>;
   footprint: FootprintRow[];
   outreach: OutreachRecord | null;
+  investability: Investability;
 }
 
 export interface OutreachRecord {
@@ -96,6 +114,8 @@ export interface DocDetail extends DocSummary {
 
 export type StageId =
   | "seed"
+  | "enrich"
+  | "places"
   | "footprint"
   | "score"
   | "profile"

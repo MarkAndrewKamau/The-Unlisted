@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Radar, Scale, ShieldCheck, Sprout } from "lucide-react";
 import { getTop50 } from "@/lib/api";
+import { ScrollReveal, ScrollRevealGroup } from "./scroll-reveal";
 
 export function TwoAxisSection() {
   const rows = [
@@ -17,10 +18,10 @@ export function TwoAxisSection() {
     },
   ];
   return (
-    <section className="border-t border-border/60 bg-background py-24">
+    <section id="model" className="border-t border-border/60 bg-background py-24 scroll-mt-16">
       <div className="mx-auto max-w-6xl px-6">
         <div className="grid gap-12 md:grid-cols-2">
-          <div>
+          <ScrollReveal>
             <p className="mono text-xs uppercase tracking-[0.35em] text-amber mb-4">
               The Model
             </p>
@@ -36,9 +37,9 @@ export function TwoAxisSection() {
               hc_rank = <span className="text-amber">√</span>( Quality ×{" "}
               <span className="text-amber">Obscurity</span> )
             </div>
-          </div>
+          </ScrollReveal>
 
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <ScrollReveal delay={0.15} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <div className="grid grid-cols-[1fr_60px_60px_70px] gap-2 mono text-[10px] uppercase tracking-widest text-muted-foreground pb-3 border-b border-border">
               <div>Scenario</div>
               <div className="text-right">Qual</div>
@@ -75,7 +76,7 @@ export function TwoAxisSection() {
                 </div>
               </div>
             ))}
-          </div>
+          </ScrollReveal>
         </div>
       </div>
     </section>
@@ -106,17 +107,17 @@ export function PillarsSection() {
     },
   ];
   return (
-    <section className="bg-forest text-forest-foreground py-24">
+    <section id="pillars" className="bg-forest text-forest-foreground py-24 scroll-mt-16">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="max-w-2xl">
+        <ScrollReveal className="max-w-2xl">
           <p className="mono text-xs uppercase tracking-[0.35em] text-amber mb-4">
             Principles
           </p>
           <h2 className="font-display text-4xl md:text-5xl leading-tight">
             A repeatable engine, not a one-off list.
           </h2>
-        </div>
-        <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+        </ScrollReveal>
+        <ScrollRevealGroup className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
           {pillars.map((p) => (
             <div key={p.title} className="border-t border-white/15 pt-6">
               <p.icon className="h-6 w-6 text-amber" strokeWidth={1.5} />
@@ -126,7 +127,7 @@ export function PillarsSection() {
               </p>
             </div>
           ))}
-        </div>
+        </ScrollRevealGroup>
       </div>
     </section>
   );
@@ -139,9 +140,9 @@ export function ChampionsPreview() {
   });
   const top = data ?? [];
   return (
-    <section className="bg-background py-24 border-t border-border">
+    <section id="champions" className="bg-background py-24 border-t border-border scroll-mt-16">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="flex items-end justify-between flex-wrap gap-6 mb-12">
+        <ScrollReveal className="flex items-end justify-between flex-wrap gap-6 mb-12">
           <div>
             <p className="mono text-xs uppercase tracking-[0.35em] text-amber mb-3">
               Current cohort
@@ -156,9 +157,9 @@ export function ChampionsPreview() {
           >
             See all 50 <ArrowRight className="h-4 w-4" />
           </Link>
-        </div>
+        </ScrollReveal>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <ScrollRevealGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {top.map((b, i) => (
             <Link
               key={b.id}
@@ -214,7 +215,7 @@ export function ChampionsPreview() {
               </div>
             </Link>
           ))}
-        </div>
+        </ScrollRevealGroup>
       </div>
     </section>
   );

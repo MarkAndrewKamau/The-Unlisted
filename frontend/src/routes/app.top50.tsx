@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getCandidates, getPipelineStats, getTop50 } from "@/lib/api";
+import { OnchainBadge } from "@/components/onchain-badge";
 import { Download, FileArchive } from "lucide-react";
 
 export const Route = createFileRoute("/app/top50")({
@@ -51,6 +52,9 @@ function Top50Page() {
           <p className="mt-3 text-foreground/70 max-w-xl">
             Businesses that passed the exclusion gate and ranked highest on the two-axis model.
           </p>
+          <div className="mt-4">
+            <OnchainBadge />
+          </div>
         </div>
         <div className="flex gap-2">
           <button

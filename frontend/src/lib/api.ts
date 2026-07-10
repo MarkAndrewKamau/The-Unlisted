@@ -10,15 +10,23 @@ import type {
   StageRunResult,
 } from "./types";
 
+import { getToken } from "./auth-client";
+import type { AuthUser } from "./types";
+
 const BASE_URL =
   (typeof import.meta !== "undefined" &&
     (import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE_URL) ||
   "http://localhost:8000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -28,6 +36,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: AuthUser;
+}
+
+export function registerAccount(email: string, password: string, name: string) {
+  return request<AuthResponse>("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password, name }),
+  });
+}
+
+export function login(email: string, password: string) {
+  return request<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export function getMe() {
+  return request<AuthUser>("/api/auth/me");
 }
 
 export interface CandidateFilters {
@@ -107,4 +138,17 @@ export function getDocs() {
 
 export function getDoc(slug: string) {
   return request<DocDetail>(`/api/docs/${slug}`);
+}
+
+export interface OnchainStatus {
+  configured: boolean;
+  network: string;
+  chain_id: number;
+  registry_address: string;
+  current_root: string;
+  champion_count: number;
+}
+
+export function getOnchainStatus() {
+  return request<OnchainStatus>("/api/onchain/status");
 }
