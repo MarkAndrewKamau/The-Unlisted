@@ -1,32 +1,9 @@
-export type Sector = "manufacturing" | "ecommerce";
-
-export interface Signals {
-  longevity_years: number;
-  rating: number;
-  review_count: number;
-  last_activity_days: number;
-  locations: number;
-  job_postings: number;
-  tenders_won: number;
-  certified: 0 | 1;
-  association_member: 0 | 1;
-}
-
-export interface FootprintRow {
-  source: string;
-  label: string;
-  hits: number;
-}
-
-export interface QualityBreakdown {
-  longevity: number;
-  customer: number;
-  consistency: number;
-  growth: number;
-  revenue: number;
-  validation: number;
-}
-
+export type Sector =
+  | "ecommerce"
+  | "manufacturing"
+  | "agriculture"
+  | "logistics";
+export type Status = "active" | "disqualified";
 export type OutreachStatus =
   | "identified"
   | "contacted"
@@ -35,50 +12,98 @@ export type OutreachStatus =
   | "joined"
   | "declined";
 
+export interface DimensionScore {
+  name: string;
+  weight: number;
+  value: number; // 0..100
+}
+
+export interface FootprintRow {
+  database: string;
+  label: string;
+  hit: boolean;
+  hits: number;
+  strong_excluder: boolean;
+}
+
 export interface Business {
   id: number;
-  slug: string;
   name: string;
   sector: Sector;
   town: string;
-  website: string;
   source: string;
-  registry_year: number;
-  signals: Signals;
-  footprint: FootprintRow[];
-  totalFootprintHits: number;
-  quality: number;
-  qualityBreakdown: QualityBreakdown;
-  qualityContributions: QualityBreakdown;
-  obscurity: number;
-  hc_rank: number;
+  website: string;
+  registry_year: number | null;
+  created_at: string;
+  quality: number | null;
+  obscurity: number | null;
+  hc_rank: number | null;
   disqualified: boolean;
-  disqualifyReason: string;
-  status: "active" | "disqualified" | "pending";
+  manually_disqualified: boolean;
+  verified: boolean;
+  reason: string;
+  dimensions: DimensionScore[];
+  status?: Status;
+}
+
+export interface BusinessDetail extends Business {
+  signals: Record<string, number>;
+  footprint: FootprintRow[];
+  outreach: OutreachRecord | null;
 }
 
 export interface OutreachRecord {
-  businessSlug: string;
-  founder: string;
-  contactChannel: string;
-  contactHandle: string;
+  business_id: number;
   status: OutreachStatus;
-  firstContacted: string | null;
-  lastTouch: string | null;
-  owner: string;
   notes: string;
+  updated_at: string;
+}
+
+export interface OutreachEntry extends Business {
+  outreach: OutreachRecord;
+  founder: string | null;
 }
 
 export interface ActivityEvent {
-  id: string;
-  timestamp: string;
+  id: number;
+  ts: string;
   message: string;
-  tone: "default" | "disqualify" | "success";
+  tone: "info" | "success" | "disqualify";
 }
 
-export interface PipelineStageDef {
-  id: "seed" | "dedupe" | "enrich" | "exclude" | "score" | "top50";
-  label: string;
-  count: number;
-  description: string;
+export interface PipelineStats {
+  seeded: number;
+  scored: number;
+  disqualified: number;
+  top50: number;
+  cycle: string;
+  last_run: string | null;
+  by_sector: Record<
+    string,
+    { seeded: number; scored: number; disqualified: number }
+  >;
+}
+
+export interface DocSummary {
+  slug: string;
+  number: string;
+  title: string;
+}
+
+export interface DocDetail extends DocSummary {
+  body: string;
+}
+
+export type StageId =
+  | "seed"
+  | "footprint"
+  | "score"
+  | "profile"
+  | "export"
+  | "outreach";
+
+export interface StageRunResult {
+  stage: StageId;
+  sector: string;
+  lines: string[];
 }
